@@ -1,6 +1,6 @@
-MidiIn min;
+  MidiIn min;
 MidiMsg msg;
-//140 bpm
+//150 bpm
 
 OscOut osc;
 osc.dest("10.10.10.1",6969);
@@ -36,7 +36,7 @@ interval/4 => dur hitInter; //duration for each synth sound
 
 [29, 29, 43, 38, 29, 29, 43, 38, 29, 29, 43, 38, 32, 48, 43, 41] @=> int bass[];
 [["F#0","C#3", "A#3", "D#4", "F4", "G#4"], ["A0", "E3", "A3", "C#4", "D4", "F#4"], ["D#0", "A#2", "G3", "A3", "C3", "F4"], ["G#0", "D#3", "G3", "C4", "D4", "F4"],
-["G0","D#3","F3","A#3","B3","D#3"],["C1","G2","A#3","D4","D#4","F4"],["C#1","G#2","C4","D#4","F4","G4"],["B0","E2","G#3","A#3","C#4","D#4"],["C1","E2","G#3","A#3","C4","A#4"]] @=> string chordStrings[][];
+["G0","D#3","F3","A#3","B3","D#3"],["C1","G2","A#3","D4","D#4","F4"],["C#1","G#2","C4","D#4","F4","G4"],["B1","E2","G#3","A#3","C#4","D#4"],["C0","E2","G#3","C3","D#4","A#4"]] @=> string chordStrings[][];
 int chords[chordStrings.size()][chordStrings[0].size()]; //all chords have to be same length
 notes2nums(["A3","A3", "D4","E4","B3","E3","A3","C3","E4","A3","A3","D4","E4","G4","A4","B4","E5"],1) @=> int snare[];
 
@@ -53,14 +53,21 @@ PulseOsc saw => ADSR e2 => PRCRev reverb2 => dac;
 SawOsc OSCarray[6];
 ADSR E[6];
 PRCRev R[6];
-0.7 => sin.gain;
+0.9 => sin.gain;
 1.0 => saw.gain;
 
 for( 0 => int i; i<6; i++)
-{   OSCarray[i] => E[i] => R[i] => dac;
-1.0 => OSCarray[i].gain;
-E[i].set(10::ms, 20::ms, .5, 3000::ms);
-0.05 => R[i].mix;
+{   
+    if(i==0){
+        OSCarray[i] => E[i] => R[i] => dac;
+    }
+    else{
+        OSCarray[i] => E[i] => R[i] => dac;
+    }
+    i $ float => float iFloat;
+    1.3*(1.0-iFloat/8.0) => OSCarray[i].gain;
+    E[i].set(10::ms, 20::ms, .5, 4000::ms);
+    0.09 => R[i].mix;
 }
 
 e1.set( 5::ms, 1::ms, .3, 100::ms );
@@ -122,7 +129,7 @@ fun void ddrumTrig()
         while(min.recv(msg))
         {
             //<<< msg.data1, msg.data2, msg.data3 >>>;
-            if( msg.data3!=0 && msg.data2 == 36 && hitBass==0) //kick drum
+            if( msg.data3!=0 && msg.data2 == 0 && hitBass==0) //kick drum
             {
                 //<<<bassindex>>>;
                
@@ -214,7 +221,7 @@ fun void ddrumTrig()
                     
                 }
             }   
-            else if(msg.data3!=0 && msg.data2 == 37 && hitSnare==0) //snare
+            else if(msg.data3!=0 && msg.data2 == 1 && hitSnare==0) //snare
             {
                 
                 //<<<snareindex>>>;
@@ -235,7 +242,7 @@ fun void ddrumTrig()
                 
                 
             }
-            else if(msg.data3!=0 && msg.data2 == 38 && hitTom == 0) //tom1: down a row
+            else if(msg.data3!=0 && msg.data2 == 2 && hitTom == 0) //tom1: down a row
             {    
                 
                 1 => hitTom;

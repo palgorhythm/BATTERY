@@ -45,9 +45,9 @@ changeOctave(concatArrays([lineA1,lineA2,lineA1,lineA2,lineB1,lineB2,lineB1,line
 //B 4x, 2x with nothing else and 2x with extra 3 line over it
 //C 1x, 
 
-SqrOsc sin => ADSR e1 => PRCRev reverb1 => dac;
-SawOsc saw => ADSR e2 => PRCRev reverb2 => dac;
-SqrOsc sqr => ADSR e3 => PRCRev reverb3 => dac;
+SqrOsc sin => ADSR e1 => PRCRev reverb1 => dac.left;
+SawOsc saw => ADSR e2 => PRCRev reverb2 => dac.right;
+SqrOsc sqr => ADSR e3 => PRCRev reverb3 => dac.right;
 e3.set( 5::ms, 15::ms, .7, 1000::ms );
 .01 => reverb3.mix;
 1.05 => sin.gain;
@@ -104,7 +104,7 @@ fun void ddrumTrig()
         while(min.recv(msg))
         {
             //<<< msg.data1, msg.data2, msg.data3 >>>;
-            if( msg.data3!=0 && msg.data2 == 36 && hitBass == 0) //kick drum
+            if( msg.data3!=0 && msg.data2 == 0 && hitBass == 0) //kick drum
             {
                 
                 //(msg.data2/30.0) => sin.gain;
@@ -165,7 +165,7 @@ fun void ddrumTrig()
                 e2.keyOff();
                 c++;                
             }   
-            else if(msg.data3!=0 && msg.data2 == 38 && hitTom == 0) //tom1: down a row
+            else if(msg.data3!=0 && msg.data2 == 2 && hitTom == 0) //tom1: down a row
             {      
                 //(msg.data2/50.0) => sqr.gain; 
                 

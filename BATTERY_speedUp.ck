@@ -1,4 +1,4 @@
-MidiIn min;
+ MidiIn min;
 MidiMsg msg;
 
 OscOut osc;
@@ -31,6 +31,7 @@ int hitSnare;
 now => time snareTime;
 5000::ms => dur interval; //duration between bass drum hits
 interval/4 => dur hitInter; //duration for each synth sound
+float currentPitch;
 
 
 [29, 29, 43, 38, 29, 29, 43, 38, 29, 29, 43, 38, 32, 48, 43, 41] @=> int bass[];
@@ -44,28 +45,24 @@ for(0 => int i; i<chords.size(); i++) //convert to MIDI notes
     notes2nums(chordStrings[i],1) @=> chords[i];
 }
 
-PulseOsc sin => ADSR e1 => BiQuad f => PRCRev reverb1 => dac;
+SawOsc sin => SawOsc overdrive => ADSR e1 => BiQuad f => dac;
+1 => overdrive.sync;
+1 => overdrive.gain;
 .99 => f.prad; 
 1 => f.eqzs;
-.05 => f.gain;
+.03 => f.gain;
 PulseOsc saw => ADSR e2 => PRCRev reverb2 => dac;
-SawOsc OSCarray[6];
-ADSR E[6];
-PRCRev R[6];
-0.7 => sin.gain;
-1.0 => saw.gain;
+0.5 => sin.gain;
+0.5 => saw.gain;
 
-for( 0 => int i; i<6; i++)
-{   OSCarray[i] => E[i] => R[i] => dac;
-1.0 => OSCarray[i].gain;
-E[i].set(20::ms, 10::ms, .9, 3000::ms);
-0.1 => R[i].mix;
-}
+PulseOsc osc3 => ADSR e3 => PRCRev reverb3 => dac;
+0.5=> osc3.gain;
 
-e1.set( 5::ms, 1::ms, .3, 100::ms );
-e2.set( 10::ms, 20::ms, .5, 1000::ms );
-.01 => reverb1.mix;
+e1.set( 200::ms, 10::ms, .1, 70::ms );
+e2.set( 10::ms, 10::ms, .5, 500::ms );
+e3.set( 20::ms, 20::ms, .1, 50::ms );
 .01 => reverb2.mix;
+.01 => reverb3.mix;
 
 //MIDI port
 0 => int port;
@@ -121,7 +118,7 @@ fun void ddrumTrig()
         while(min.recv(msg))
         {
             //<<< msg.data1, msg.data2, msg.data3 >>>;
-            if( msg.data3!=0 && msg.data2 == 36 && hitBass==0) //kick drum
+            if( msg.data3!=0 && msg.data2 == 0 && hitBass==0) //kick drum
             {
                 //<<<bassindex>>>;
                 
@@ -134,26 +131,20 @@ fun void ddrumTrig()
                 interval/4 => hitInter;
                 now => bassTime;
                 //<<<chordGo>>>;
+                Math.random2(2,6) => float interDiv;
+             
                 
                 if(bSection == 0) //if in A section, hit the current note 4 times
                 {
-                    //<<<hitInter>>>;
-                    if(bassindex > bass.size() - 2)
-                    {
-                        6 => interDiv;
-                    }
-                    else
-                    {
-                        4 => interDiv;
-                    }
                     
-                    //<<<interDiv>>>;
+                  
                     oscOut("/bass",[bass[bassindex]]); //OSC
                     
                     for(0 => int i; i < interDiv; i++)
                     {
                         //Std.mtof(bass[bassindex]) => sin.freq;  //set the frequency
-                        10000.0/(hitInter/1::ms) => sin.freq;  //set the frequency
+                        10000.0/(hitInter/1::ms) => currentPitch;  //set the frequency
+                        currentPitch => sin.freq;
                         e1.keyOn();
                         hitInter/(interDiv/2) => now;
                         e1.keyOff();
@@ -162,44 +153,6 @@ fun void ddrumTrig()
                 }
                 else
                 {
-                    if(chordGo == 1)
-                    {
-                        //<<<globalChordIndex>>>;
-                        for(0 => int i; i < chords[chordindex].size(); i++)
-                        {
-                            E[i].keyOff();
-                        }
-                        
-                        
-                        0 => chordGo;
-                        
-                        oscOut("/chords",[chords[chordindex][0]]);
-                        
-                        for(0 => int i; i < chords[chordindex].size(); i++)
-                        {
-                            
-                            //Std.mtof(chords[chordindex][i]) => OSCarray[i].freq;
-                            chords[chordindex][i] * hitInter/1::ms => OSCarray[i].freq;
-                            E[i].keyOn();
-                            
-                        }
-                        
-                        if(chordindex == chords.size()-1) globalChordIndex+1 => globalChordIndex;
-                        (chordindex + 1) % chords.size() => chordindex;
-                        
-                        
-                        0.5::second => now;
-                        
-                        
-                        for(0 => int i; i < chords[chordindex].size(); i++)
-                        {
-                            E[i].keyOff();
-                        }
-                        
-                        0.5::second => now;    
-                        
-                        
-                    }
                 }
                 
                 if(bSection == 0)
@@ -213,55 +166,92 @@ fun void ddrumTrig()
                     0 => bassindex;
                     
                 }
-            }   
-            else if(msg.data3!=0 && msg.data2 == 37 && hitSnare==0) //snare
+            }
+            else if(msg.data3!=0 && msg.data2 == 1 && hitSnare==0) //snare
             {
+                e2.keyOff();
+                (currentPitch)*(3/2)*4 => saw.freq;
+                e2.keyOn();
+                hitInter/(interDiv/2) => now;
+                e2.keyOff();
+                hitInter/(interDiv/2) => now;
                 
-                //<<<snareindex>>>;
-               
                 
                 
             }
-            else if(msg.data3!=0 && msg.data2 == 40 && hitTom == 0) //tom1: down a row
+            else if(msg.data3!=0 && msg.data2 == 2 && hitTom == 0) //tom1: down a row
             {    
                 
-                1 => hitTom;
-                
-                if(bSection == 0)
-                {
-                    oscOut("/songSection",[1]);
-                    e1.keyOff();
-                    1 => bSection;
-                    //0 => globalChordIndex;
-                    1 => chordGo;
-                    0 => bassindex;
-                    //<<<globalChordIndex>>>;
-                    
-                }
-                else
-                {                    
-                    if(globalChordIndex == 1 || globalChordIndex ==4)
-                    {
-                        0 => bSection;
-                        oscOut("/songSection",[0]);
-                        globalChordIndex + 1 => globalChordIndex;
-                        for(0 => int i; i < chords[chordindex].size(); i++)
-                        {
-                            E[i].keyOff();
-                        }
-                        0 => bassindex;
-                    }
-                    else
-                    {
-                        1 => chordGo;
-                    }
-                    
-                    
-                }
+                e2.keyOff();
+                (currentPitch)*(7.0/4.0)*4.0 => saw.freq;
+                e2.keyOn();
+                0.1::second => now;
+                e2.keyOff();
+                0.1::second => now;
                 
                 
+       
+            }
+            else if(msg.data3!=0 && msg.data2 == 54)
+            {
+                e3.keyOff();
+                (currentPitch)*(9.0/4.0)*4.0 => osc3.freq;
+                e3.keyOn();
+                0.05::second => now;
+                e3.keyOff();
+                0.05::second => now;
                 
             }
+            else if(msg.data3!=0 && msg.data2 == 55)
+            {
+                e3.keyOff();
+                (currentPitch)*(15.0/4.0)*4.0 => osc3.freq;
+                e3.keyOn();
+                0.05::second => now;
+                e3.keyOff();
+                0.05::second => now;
+                
+            }
+            else if(msg.data3!=0 && msg.data2 == 56)
+            {
+                e3.keyOff();
+                (currentPitch)*(23.0/4.0)*4.0 => osc3.freq;
+                e3.keyOn();
+                0.05::second => now;
+                e3.keyOff();
+                0.05::second => now;
+                
+            }   
+            else if(msg.data3!=0 && msg.data2 == 57)
+            {
+                e3.keyOff();
+                (currentPitch)*(25.0/4.0)*4.0 => osc3.freq;
+                e3.keyOn();
+                0.05::second => now;
+                e3.keyOff();
+                0.05::second => now;
+                
+            }   
+            else if(msg.data3!=0 && msg.data2 == 58)
+            {
+                e3.keyOff();
+                (currentPitch)*(27.0/4.0)*4.0 => osc3.freq;
+                e3.keyOn();
+                0.05::second => now;
+                e3.keyOff();
+                0.05::second => now;
+                
+            }   
+            else if(msg.data3!=0 && msg.data2 == 59)
+            {
+                e3.keyOff();
+                (currentPitch)*(29.0/4.0)*4.0 => osc3.freq;
+                e3.keyOn();
+                0.05::second => now;
+                e3.keyOff();
+                0.05::second => now;
+                
+            }   
         }
     }    
 }

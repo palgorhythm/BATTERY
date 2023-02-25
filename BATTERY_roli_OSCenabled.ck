@@ -26,17 +26,17 @@ now + 1000::second => time snareTime;
 //[63] @=> int snare[];
 
 
-PulseOsc sin => ADSR e1 => BiQuad f => PRCRev reverb1 => dac;
+PulseOsc sin => ADSR e1 => BiQuad f => PRCRev reverb1 => dac.left;
 .99 => f.prad; 
 // set equal gain zeros
 1 => f.eqzs;
 // set filter gain
-.02 => f.gain;
-PulseOsc saw => ADSR e2 => PRCRev reverb2 => dac;
-SqrOsc sqr => ADSR e3 => PRCRev reverb3 => dac;
+.04 => f.gain;
+PulseOsc saw => ADSR e2 => PRCRev reverb2 => dac.right;
+SqrOsc sqr => ADSR e3 => PRCRev reverb3 => dac.right;
 1.0 => sin.gain;
-1.5 => saw.gain;
-1.5 => sqr.gain;
+2.0 => saw.gain;
+2.0 => sqr.gain;
 e1.set( 10::ms, 5::ms, .5, 1500::ms );
 e2.set( 10::ms, 5::ms, .5, 1000::ms );
 e3.set( 10::ms, 5::ms, .5, 1000::ms );
@@ -59,6 +59,8 @@ spork ~ ddrumTrig();
 20::ms => now;
 spork ~ ddrumTrig();
 20::ms => now;
+spork ~ ddrumTrig();
+20::ms => now;
 spork ~ voiceGate();
 
 while(true)
@@ -70,11 +72,11 @@ fun void voiceGate()
 {
     while(true)
     {
-        if(hitTom==1 && (now > tomTime + 300::ms) )
+        if(hitTom==1 && (now > tomTime + 100::ms) )
         {
             0 => hitTom;
         }
-        if(hitBass==1 && (now > bassTime + 200::ms) )
+        if(hitBass==1 && (now > bassTime + 100::ms) )
         {
             0 => hitBass;
         }
@@ -96,7 +98,7 @@ fun void ddrumTrig()
         while(min.recv(msg))
         {
             //<<< msg.data1, msg.data2, msg.data3 >>>;
-            if( msg.data3!=0 && msg.data2 == 36 && hitBass==0) //kick drum
+            if( msg.data3!=0 && msg.data2 == 0 && hitBass==0) //kick drum
             {
                 //(msg.data2/80.0) => sin.gain;
                 1 => hitBass;
@@ -112,7 +114,7 @@ fun void ddrumTrig()
                   
                 (bassindex + 1) % bass.size() => bassindex;                
             }   
-            else if(msg.data3!=0 && msg.data2 == 37 && hitSnare==0) //snare
+            else if(msg.data3!=0 && msg.data2 == 1 && hitSnare==0) //snare
             {
                 1 => hitSnare;
                 now => snareTime;
@@ -127,7 +129,7 @@ fun void ddrumTrig()
                 
                 (snareindex + 1) % snare.size() => snareindex;
             }
-            else if(msg.data3!=0 && msg.data2 == 38 && hitTom == 0) //tom1: down a row
+            else if(msg.data3!=0 && msg.data2 == 2 && hitTom == 0) //tom1: down a row
             {    
                 1 => hitTom;
                 now => tomTime;     

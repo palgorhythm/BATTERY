@@ -2,10 +2,6 @@ MidiIn min;
 MidiMsg msg;
 //120 bpm;
 
-OscOut osc;
-osc.dest("10.10.10.1",6969);
-oscOut("/song",[2.0]);
-
 //IDEAS: 1. drum and bass song
 // 2. song where each bd hit triggers fast rhythm that changes
 // 3. deerhoof cover
@@ -32,38 +28,57 @@ now  => time bassTime;
 int hitSnare;
 now => time snareTime;
 
-4 => int aChordSize;
-5 => int bChordSize;
+6 => int chordSize;
 [36, 34, 37, 33, 31, 29, 38, 40, 30, 41, 39, 37, 35, 31, 27, 35, 33,  35, 33, 29, 25, 33, 31] @=> int rootListA[];
 [35, 33, 34, 27, 29, 30, 35, 33] @=> int rootListB[];
 
-float Achords[rootListA.size()][aChordSize]; //1st dim is num of chords total, 2nd is notes in each chord
+float Achords[rootListA.size()][chordSize]; //1st dim is num of chords total, 2nd is notes in each chord
 
-float Bchords[rootListB.size()][bChordSize]; //1st dim is num of chords total, 2nd is notes in each chord
+float Bchords[rootListB.size()][chordSize]; //1st dim is num of chords total, 2nd is notes in each chord
 
 for(0 => int i; i<Achords.size(); i++) //convert to MIDI notes
 {
-    harmonicChord(rootListA[i], 4, 6.0, 3.0) @=> Achords[i];
+    harmonicChord(rootListA[i], chordSize, 6.0, 3.0) @=> Achords[i];
 }
 
 for(0 => int i; i<Bchords.size(); i++) //convert to MIDI notes
 {
-    harmonicChord(rootListB[i], 4, 4.0, 3.0) @=> Bchords[i];
+    harmonicChord(rootListB[i], chordSize, 4.0, 3.0) @=> Bchords[i];
 }
 
-PulseOsc OSCarray[5];
-ADSR E[5];
-PRCRev R[5];
-BiQuad F[5];
+Shakers shake => dac;
+10.0 => shake.gain;
 
-for( 0 => int i; i<5; i++)
-{   OSCarray[i] => E[i] => R[i] => dac;
-0.7 => OSCarray[i].gain;
-E[i].set(20::ms, 10::ms, .9, 1000::ms);
-0.1 => R[i].mix;
-.99 => F[i].prad; 
-1 => F[i].eqzs;
-(6-i)*.1 => F[i].gain;
+SawOsc soloOsc;
+ADSR soloADSR;
+BiQuad soloFilt;
+soloOsc => soloADSR => soloFilt => dac;
+soloADSR.set(5::ms, 5::ms, .5, 20::ms);
+0.9 => soloOsc.gain;
+.99 => soloFilt.prad; 
+5 => soloFilt.eqzs;
+0.9 => soloFilt.gain;
+
+
+PulseOsc OSCarray[chordSize];
+ADSR E[chordSize];
+PRCRev R[chordSize];
+BiQuad F[chordSize];
+
+for( 0 => int i; i<chordSize; i++)
+{   
+    if(i<2){
+        OSCarray[i] => E[i] => R[i] => dac;
+    }
+    else{
+        OSCarray[i] => E[i] => R[i] => dac;
+    }
+    0.4 => OSCarray[i].gain;
+    E[i].set(10::ms, 100::ms, .9, 1200::ms);
+    0.01 => R[i].mix;
+    .99 => F[i].prad; 
+    1 => F[i].eqzs;
+    (5-i)*0.05 => F[i].gain;
 }
 
 
@@ -84,19 +99,17 @@ spork ~ ddrumTrig();
 10::ms => now;
 spork ~ voiceGate();
 10::ms => now;
-oscOut("/songSection",[0.0]);
 
 while(true)
 {
     0.2::second => now;
+ 
     if(((globalChordIndex - 2) % 3) == 0) 
     {
-        oscOut("/songSection",[1.0]);
         1 => bSection;
     }
     else
     {
-        oscOut("/songSection",[0.0]);
         0 => bSection;
     }
 }
@@ -130,8 +143,8 @@ fun void ddrumTrig()
         
         while(min.recv(msg))
         {
-            //<<< msg.data1, msg.data2, msg.data3 >>>;
-            if( msg.data3!=0 && msg.data2 == 36 && hitBass==0) //kick drum
+            <<< msg.data1, msg.data2, msg.data3 >>>;
+            if( msg.data3!=0 && msg.data2 == 0 && hitBass==0) //kick drum
             {
                 1 => hitBass; 
                 
@@ -148,12 +161,12 @@ fun void ddrumTrig()
                 
                 if(bSection == 0)
                 {
+                    //<<<Achordindex>>>;
                     for(0 => int i; i < Achords[Achordindex].size(); i++)
                     {
                         E[i].keyOff();
                     }
                     
-                    oscOut("/chords",[Achords[Achordindex][0]]);
                     
                     for(0 => int i; i < Achords[Achordindex].size(); i++)
                     {
@@ -184,7 +197,6 @@ fun void ddrumTrig()
                         E[i].keyOff();
                     }
                     
-                    oscOut("/chords",[Bchords[Bchordindex][0]]);
                     
                     for(0 => int i; i < Bchords[Bchordindex].size(); i++)
                     {
@@ -211,7 +223,37 @@ fun void ddrumTrig()
                     
                 }
                 
-            }   
+            } 
+            else if(msg.data3!=0 && 54<=msg.data2 && msg.data2<=62){
+                soloADSR.keyOff();
+                msg.data2 - 54 => int soloInput; //starts at 48
+                <<<(Achordindex-1)%Achords.size()>>>;
+                
+                //6 => shake.which;
+                //50.0 => shake.freq;
+                //Math.random2f( 0, 128 ) => shake.objects;
+                //shake.noteOn(10.0);
+                
+                if(bSection == 0){
+                    Achords[(Achordindex+Achords.size()-1)%Achords.size()][soloInput]*2.0=> soloOsc.freq;
+                    soloADSR.keyOn();
+                    20::ms=>now;
+                    soloADSR.keyOff();
+                }
+                else{
+                    Bchords[(Bchordindex+Bchords.size()-1)%Bchords.size()][soloInput]*2.0=> soloOsc.freq;
+                    soloADSR.keyOn();
+                    20::ms=>now;
+                    soloADSR.keyOff();
+                    
+                }
+                
+                //200::ms=>now;
+                
+                
+ 
+            }
+              
         }
     }    
 }
@@ -312,14 +354,4 @@ fun float[] harmonicChord(int rootMIDI,int harmonics, float a, float b)
     }
     
     return result;
-}
-
-fun void oscOut(string addr, float val[]){
-    osc.start(addr);
-    
-    for(0 => int i; i<val.size(); i++)
-    {
-        osc.add(val[i]);
-    }
-    osc.send();
 }

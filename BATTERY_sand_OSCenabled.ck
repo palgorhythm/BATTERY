@@ -16,7 +16,7 @@ now + 1000::second => time snareTime;
 int toggle;
 
 
-Noise n1 => Gain g1 => BiQuad f1 => dac;
+Noise n1 => Gain g1 => BiQuad f1 => dac.left;
 // set biquad pole radius
 0 => g1.gain;
 .99 => f1.prad;
@@ -26,7 +26,7 @@ Noise n1 => Gain g1 => BiQuad f1 => dac;
 10 => f1.eqzs;
 
 
-Noise n2 => Gain g2 => BiQuad f2 => dac;
+Noise n2 => Gain g2 => BiQuad f2 => dac.right;
 // set biquad pole radius
 0 => g2.gain;
 .99 => f2.prad;
@@ -36,7 +36,7 @@ Noise n2 => Gain g2 => BiQuad f2 => dac;
 10 => f2.eqzs;
 
 
-Noise n3 => Gain g3 => BiQuad f3 => dac;
+Noise n3 => Gain g3 => BiQuad f3 => dac.right;
 // set biquad pole radius
 0 => g3.gain;
 .99 => f3.prad;
@@ -85,9 +85,9 @@ while( true )
     //oscOut("/chords",[ftom(temp)]);
     temp => f.pfreq;
     // advance time
-    50::ms => now;
+    30::ms => now;
     0 => g.gain;
-    50::ms => now;
+    60::ms => now;
     
 }
 
@@ -121,21 +121,21 @@ fun void ddrumTrig()
         while(min.recv(msg))
         {
             //<<< msg.data1, msg.data2, msg.data3 >>>;
-            if( msg.data3!=0 && msg.data2 == 36 && hitBass==0) //kick drum
+            if( msg.data3!=0 && msg.data2 == 0 && hitBass==0) //kick drum
             {
                 
                 1 => hitBass;
                 now => bassTime; 
                 msg.data2/50.0 => g1.gain;
                 Std.rand2f(50.0,100.0) => float a;
-                Std.rand2f(50.0,300.0) => float b;
+                Std.rand2f(100.0,300.0) => float b;
                 a => f1.pfreq;
                 oscOut("/bass",[ftom(a)]);
                 b::ms => now;   
                 0 => g1.gain;  
                 0 => g2.gain;           
             }   
-            else if(msg.data3!=0 && msg.data2 == 37 && hitSnare==0) //snare
+            else if(msg.data3!=0 && msg.data2 == 1 && hitSnare==0) //snare
             {
                 1 => hitSnare;
                 now => snareTime;
@@ -144,14 +144,14 @@ fun void ddrumTrig()
                 Std.rand2f(1000.0,5000.0) => float a;
                 a => f2.pfreq;
                 //Std.rand2f(100.0,300.0) => f1.pfreq;
-                Std.rand2f(200.0,1000.0) => float b;
+                Std.rand2f(100.0,1000.0) => float b;
                 oscOut("/melody",[ftom(a)]);
                 b::ms => now;   
                 0 => g2.gain;
                 0 => g1.gain;
                 //0 => g1.gain;
             }
-            else if(msg.data3!=0 && msg.data2 == 38 && hitTom == 0) //tom1: down a row
+            else if(msg.data3!=0 && msg.data2 == 2 && hitTom == 0) //tom1: down a row
             {    
                 1 => hitTom;
                 now => tomTime;        

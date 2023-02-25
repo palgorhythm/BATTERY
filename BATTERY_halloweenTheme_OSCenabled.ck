@@ -71,25 +71,25 @@ int bass[29];
 notes2nums(bassStr,1) @=> bass;
 
 
-PulseOsc bassOsc => ADSR e1 => BiQuad f1 => PRCRev reverb1 => dac;
+PulseOsc bassOsc => ADSR e1 => BiQuad f1 => PRCRev reverb1 => dac.left;
 .99 => f1.prad; 
 1 => f1.eqzs;
-.04 => f1.gain;
-.01 => reverb1.mix;
-e1.set( 50::ms, 20::ms, .5, 1500::ms );
+.05 => f1.gain;
+0 => reverb1.mix;
+e1.set( 10::ms, 20::ms, .5, 2000::ms );
 
-SawOsc midMelOsc => ADSR e2 => BiQuad f2 => PRCRev reverb2 => dac;
+SawOsc midMelOsc => ADSR e2 => BiQuad f2 => PRCRev reverb2 => dac.right;
 .99 => f2.prad; 
 1 => f2.eqzs;
 .5 => f2.gain;
-.01 => reverb2.mix;
-e2.set( 10::ms, 10::ms, .5, 200::ms );
+0 => reverb2.mix;
+e2.set( 10::ms, 20::ms, .5, 500::ms );
 
-SawOsc melOsc => ADSR e3 => BiQuad f3 => PRCRev reverb3 => dac;
+SawOsc melOsc => ADSR e3 => BiQuad f3 => PRCRev reverb3 => dac.right;
 .99 => f3.prad; 
 1 => f3.eqzs;
 .9 => f3.gain;
-.05 => reverb3.mix;
+0 => reverb3.mix;
 e3.set( 10::ms, 20::ms, .5, 500::ms );
 
 //MIDI port
@@ -146,7 +146,7 @@ fun void ddrumTrig()
         while(min.recv(msg))
         {
             //<<< msg.data1, msg.data2, msg.data3 >>>;
-            if( msg.data3!=0 && msg.data2 == 36 && hitBass==0) //kick drum
+            if( msg.data3!=0 && msg.data2 == 0 && hitBass==0) //kick drum
             {
                 oscOut("/chords",[midMel[barIndex]]); //OSC midi note number!
                 0 => hitBass;
@@ -157,7 +157,7 @@ fun void ddrumTrig()
                 200::ms => now;
                 e2.keyOff();  
             }   
-            else if(msg.data3!=0 && msg.data2 == 37 && hitSnare==0) //snare
+            else if(msg.data3!=0 && msg.data2 == 1 && hitSnare==0) //snare
             {
                 //<<<barIndex,melIndex>>>;
                 oscOut("/melody",[melody[barIndex][melIndex]]); //OSC midi note number!
@@ -191,7 +191,7 @@ fun void ddrumTrig()
                 
                 
             }
-            else if(msg.data3!=0 && msg.data2 == 38 && hitTom == 0) //tom1: down a row
+            else if(msg.data3!=0 && msg.data2 == 2 && hitTom == 0) //tom1: down a row
             {    
                 
                 

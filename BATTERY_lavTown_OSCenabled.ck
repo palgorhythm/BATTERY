@@ -43,16 +43,16 @@ changeOctave(concatArrays([b1,b2,b1,b3,b9,b1,b2,b4,b5,b6,b1,b3,b1,b2,b9,b4,b2,b1
 //B 4x, 2x with nothing else and 2x with extra 3 line over it
 //C 1x, 
 
-SawOsc o1 => ADSR e1 => dac;
-SqrOsc o2 => ADSR e2 => dac;
-SqrOsc o3 => ADSR e3 => PRCRev reverb3 => dac;
-SawOsc o4 => ADSR e4 => PRCRev reverb4 => dac;
+SawOsc o1 => ADSR e1 => dac.right;
+SqrOsc o2 => ADSR e2 => dac.right;
+SqrOsc o3 => ADSR e3 => PRCRev reverb3 => dac.left;
+SawOsc o4 => ADSR e4 => PRCRev reverb4 => dac.left;
 e1.set( 5::ms, 5::ms, .5, 10::ms );
 e2.set( 5::ms, 5::ms, .5, 10::ms );
 e3.set( 20::ms, 20::ms, .5, 2000::ms );
 e4.set( 20::ms, 20::ms, .5, 2000::ms );
-.01 => reverb3.mix;
-.01 => reverb4.mix;
+.05 => reverb3.mix;
+.05 => reverb4.mix;
 0.8 => o1.gain;
 0.8 => o2.gain;
 1.0 => o3.gain;
@@ -94,9 +94,10 @@ while(true)
     c/16 => line; 
     e1.keyOff();
     e2.keyOff();
-    500.0 => float songLength;
-    (songLength-c)*2/songLength => e1.gain;
-    (songLength-c)*2/songLength => e2.gain;
+    600.0 => float songLength;
+    ((songLength-(c/1.0)))/songLength => e1.gain;
+    ((songLength-(c/1.0)))/songLength => e2.gain;
+  
     if( c > songLength)
     {
         0.0 => e1.gain;
@@ -109,11 +110,11 @@ fun void voiceGate()
 {
     while(true)
     {
-        if(hitTom==1 && (now > tomTime + 200::ms) )
+        if(hitTom==1 && (now > tomTime + 50::ms) )
         {
             0 => hitTom;
         }
-        if(hitBass==1 && (now > bassTime + 200::ms) )
+        if(hitBass==1 && (now > bassTime + 50::ms) )
         {
             0 => hitBass;
         }
@@ -130,8 +131,8 @@ fun void ddrumTrig()
         
         while(min.recv(msg))
         {            
-            <<< msg.data1, msg.data2, msg.data3 >>>;
-            if(msg.data3!=0 && msg.data2 == 38 && hitTom==0) //tom1
+            //<<< msg.data1, msg.data2, msg.data3 >>>;
+            if(msg.data3!=0 && msg.data2 == 2 && hitTom==0) //tom1
             {   
                 //(msg.data2/50.0) => o3.gain;   
                 1 => hitTom;
@@ -147,7 +148,7 @@ fun void ddrumTrig()
                 midInd++;
                 
             }
-            else if( msg.data3!=0 && msg.data2 == 36 && hitBass==0) //kick drum
+            else if( msg.data3!=0 && msg.data2 == 0 && hitBass==0) //kick drum
             {
                 1 => hitBass;
                 now => bassTime;

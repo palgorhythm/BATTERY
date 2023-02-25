@@ -1,6 +1,8 @@
 MidiIn min;
 MidiMsg msg;
 
+//160 bpm
+
 OscOut osc; 
 osc.dest("10.10.10.1",6969);
 oscOut("/song",[3]);
@@ -90,12 +92,12 @@ for(int i; i<seqHeight; i++)
 
 ///NOTE MATRICES END///
 
-PulseOsc sin => ADSR e1 => BiQuad f => PRCRev reverb1 => dac;
+PulseOsc sin => ADSR e1 => BiQuad f => PRCRev reverb1 => dac.left;
 .97 => f.prad; 
 2 => f.eqzs;
 .05 => f.gain;
 
-SawOsc saw => ADSR e2 => PRCRev reverb2 => dac;
+SawOsc saw => ADSR e2 => PRCRev reverb2 => dac.right;
 0.7 => sin.gain;
 1.2 => saw.gain;
 .001 => reverb1.mix;
@@ -179,7 +181,7 @@ fun void ddrumTrig()
                 .001 => reverb2.mix;
             }
             //<<< msg.data1, msg.data2, msg.data3 >>>;
-            if( msg.data3!=0 && msg.data2 == 36 && hitBass == 0 ) //kick drum
+            if( msg.data3!=0 && msg.data2 == 37 && hitBass == 0 ) //kick drum
             {
                 //<<<hitBass>>>;
                 1 => hitBass;
@@ -201,7 +203,7 @@ fun void ddrumTrig()
                 (bassindices[1] + 1 ) % seqWidth => bassindices[1];  
                  
             }   
-            else if(msg.data3!=0 && msg.data2 == 37 && hitSnare==0) //snare
+            else if(msg.data3!=0 && msg.data2 == 36 && hitSnare==0) //snare
             {
               
                 1 => hitSnare;
