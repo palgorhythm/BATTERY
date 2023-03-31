@@ -7,7 +7,7 @@ if(!min.open(port)) {
   <<<"ERROR: midi port didn't open on port:", port>>>;
   me.exit();
 }
-<<<"MIDI connected!">>
+<<<"MIDI connected!">>>;
 
 [
   ["D#0","G2", "A#2", "C3", "D3"], 
@@ -65,21 +65,25 @@ if(!min.open(port)) {
   ["F0","A2","D#3","F#3","B3"]
 ] @=> string chordStrings[][];
 
-int chords[chordStrings.size()][chordStrings[0].size()];
+int numVoices;
+chordStrings[0].size() => numVoices;
+int chords[chordStrings.size()][numVoices];
 chordSequenceMidiNoteToNumbers(chordStrings) @=> chords;
 
 <<<"Translated MIDI chords into note numbers.">>>;
 
 0 => int chordIndex;
 0 => int chordSustain;
+50 => int minSustain;
+5000 => int maxSustain;
 0 => int soloOctave;
 
-SawOsc oscArray[5];
-ADSR adsr[5];
-PRCRev reverb[5];
-BiQuad filter[5];
+SawOsc oscArray[numVoices];
+ADSR adsr[numVoices];
+PRCRev reverb[numVoices];
+BiQuad filter[numVoices];
 
-for(0 => int i; i < 5; i++) {   
+for(0 => int i; i < numVoices; i++) {   
   if(i == 0) {
       oscArray[i] => adsr[i] => reverb[i] => dac.left;
   }
@@ -132,15 +136,15 @@ while(true) {
 
 fun void handleMidiEvent(int midiNote) {
   if(midiNote == 0) { // kick drum
-    for(0 => int i; i < chords[chordIndex].size(); i++) {   
-      (chordIndex + 1) * 50 => chordSustain;
+    for(0 => int i; i < numVoices; i++) {   
+      (((chordIndex + 1) / chords.size()) * maxSustain) + minSustain => chordSustain;
       adsr[i].set(20::ms, 10::ms, .9, chordSustain::ms);   
       adsr[i].keyOff(); 
       Std.mtof(chords[chordIndex][i]) => oscArray[i].freq;
       adsr[i].keyOn();
     }
     20::ms => now;
-    for(0 => int i; i < chords[chordIndex].size(); i++) {
+    for(0 => int i; i < numVoices; i++) {
       adsr[i].keyOff();
     }
 
