@@ -12,8 +12,8 @@ if(!min.open(port)) {
 5 => int numVoices;
 10 => int attack;
 10 => int decay;
-0.1 => float sustain;
-3000 => int release;
+0.5 => float sustain;
+4000 => int release;
 10 => int numHandlers;
 
 SawOsc oscs[numVoices];
@@ -21,15 +21,30 @@ ADSR adsrs[numVoices];
 PRCRev reverb[numVoices];
 BiQuad filter[numVoices];
 
-SawOsc soloOsc;
+SqrOsc soloOsc;
+PRCRev soloReverb;
 ADSR soloAdsr;
 BiQuad soloFilter;
-soloOsc => soloAdsr => soloFilter => dac.right;
+soloOsc => soloAdsr => soloReverb => soloFilter => dac;
 soloAdsr.set(10::ms, 500::ms, .1, 1000::ms);
-0.5 => soloOsc.gain;
+0.05 => soloReverb.mix;
+2 => soloOsc.gain;
 .99 => soloFilter.prad; 
 1 => soloFilter.eqzs;
-0.9 => soloFilter.gain;
+0.1 => soloFilter.gain;
+
+Shakers shaker => JCRev shakerReverb => dac;
+2 => shaker.gain;
+0.95 => shakerReverb.gain;
+.025 => shakerReverb.mix;
+
+fun void hitShaker() {
+  Math.random2( 0, 10 ) => shaker.which;
+  Std.mtof( Math.random2f( 10.0, 128.0 ) ) => shaker.freq;
+  Math.random2f( 0, 128 ) => shaker.objects;
+  Math.random2f( 0.8, 1.8 ) => shaker.noteOn;
+}
+
 
 fun void configureOscillators() {
   for(0 => int i; i < numVoices; i++) {   
@@ -41,10 +56,10 @@ fun void configureOscillators() {
     }
     1.0 * (1.0 - (i / 20)) => oscs[i].gain;
     adsrs[i].set(attack::ms, decay::ms, sustain, release::ms);
-    0.01 => reverb[i].mix;
+    0.1 => reverb[i].mix;
     .99 => filter[i].prad; 
     1 => filter[i].eqzs;
-    (7 - i) * .07 => filter[i].gain;
+    (7 - i) * .1 => filter[i].gain;
   }
 }
 
@@ -72,32 +87,38 @@ while(true) {
 
 <<<"Started!">>>;
 
-generateRandomChord() @=> int chord[];
-0 => int hasSeeded;
+[34, 40, 47, 54, 61] @=> int chord[];
+0 => int hasDone;
 
 fun void handleMidiEvent(int midiNote) {
-  if(hasSeeded == 0){
-    generateRandomChord() @=> chord;  
-    1 => hasSeeded;
+  if(hasDone == 251){
+    [34, 40, 47, 54, 61] @=> chord;
+    0 => hasDone;
+    <<<"Falling back to default chord">>>;
   }
   if(midiNote == 0) { // kick drum
+    soloAdsr.keyOff();
     generateRandomChord() @=> chord;
     playNotes(chord, adsrs, oscs);
   } else if(midiNote == 1) { // snare
-    soloAdsr.set(10::ms, 500::ms, .5, 1000::ms);
-    playNotes([chord[4] + (Math.random2(1,2) * 12)], [soloAdsr], [soloOsc]);
+    1 => soloOsc.gain;
+    soloAdsr.set(10::ms, 10::ms, .5, 1000::ms);
+    playNotes([chord[Math.random2(1,4)] + (Math.random2(1,2) * 12)], [soloAdsr], [soloOsc]);
   } else if(midiNote == 2) { // floor tom
-    soloAdsr.set(10::ms, 500::ms, .5, 2000::ms);
-    playNotes([chord[3] + (Math.random2(1,2) * 12)], [soloAdsr], [soloOsc]);
+    0.25 => soloOsc.gain;
+    soloAdsr.set(10::ms, 10::ms, .5, 1000::ms);
+    playNotes([chord[0] + (Math.random2(0,1) * 12)], [soloAdsr], [soloOsc]);
   } else if(midiNote >= 54 && midiNote <= 62) { // spd
-    soloAdsr.set(10::ms, 10::ms, .9, 50::ms);
+    1.5 => soloOsc.gain;
     midiNote - 54 => int normalizedMidiNote;
+    soloAdsr.set(10::ms, 10::ms, .9, (normalizedMidiNote * 30)::ms);
     chord[normalizedMidiNote % chord.size()] + (Math.random2(2,3) * 12) => int midiNote;
+    hitShaker();
     playNotes([midiNote], [soloAdsr], [soloOsc]);
   }
 }
 
-fun void playNotes(int notes[], ADSR adsrs[], SawOsc oscs[]) {
+fun void playNotes(int notes[], ADSR adsrs[], Osc oscs[]) {
   for(0 => int i; i < notes.size(); i++) {
     adsrs[i].keyOff(); 
     Std.mtof(notes[i]) => oscs[i].freq;
@@ -149,20 +170,21 @@ fun int[] chordMidiNoteToNumbers(string chord[]) {
 
 fun int[] generateRandomChord() {
   [
-    [0,4,7,11,14] // Major
-    // [0,3,7,10,16], // Minor
+    [0,4,7,11,14], // Major
+    [0,7,14,21,28] // 5ths
+    // [0,3,7,10,16] // Minor
     // [0,4,7,10,14] // Dominant
   ] @=> int chordQualities[][];
 
-  Math.random2(38,50) => int root;
+  Math.random2(36,48) => int root;
   Math.random2(0, chordQualities.size() - 1) => int qualityIndex;
   chordQualities[qualityIndex] @=> int chord[];
   for(0 => int i; i < chord.size(); i ++){
-    Math.random2(0,2) => int randomOctave;
+    Math.random2(1,3) => int randomOctave;
     if( i == 0 ){
-      root + chord[i] + (randomOctave * 12) => chord[i];
+      root + chord[i] => chord[i];
     } else {
-      root + chord[i] => chord[i];   
+      root + chord[i] + (randomOctave * 12) => chord[i];   
     }
   }
   <<<root>>>;
