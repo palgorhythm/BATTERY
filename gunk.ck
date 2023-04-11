@@ -24,7 +24,7 @@ oscOut("/song",[1]);
 0 => int interDiv;
 
 int hitTom;
-now=> time tomTime; //had added + 1000::second before, why???
+now => time tomTime; //had added + 1000::second before, why???
 int hitBass;
 now  => time bassTime;
 int hitSnare;
@@ -51,16 +51,17 @@ SawOsc sin => SawOsc overdrive => ADSR e1 => BiQuad f => dac;
 .99 => f.prad; 
 1 => f.eqzs;
 .03 => f.gain;
+
 PulseOsc saw => ADSR e2 => PRCRev reverb2 => dac;
 0.5 => sin.gain;
 0.5 => saw.gain;
 
-PulseOsc osc3 => ADSR e3 => PRCRev reverb3 => dac;
+SqrOsc osc3 => ADSR e3 => PRCRev reverb3 => dac;
 0.5=> osc3.gain;
 
-e1.set( 200::ms, 10::ms, .1, 70::ms );
+e1.set( 100::ms, 10::ms, .5, 50::ms );
 e2.set( 10::ms, 10::ms, .5, 500::ms );
-e3.set( 20::ms, 20::ms, .1, 50::ms );
+e3.set( 20::ms, 20::ms, .1, 1000::ms );
 .01 => reverb2.mix;
 .01 => reverb3.mix;
 
@@ -117,7 +118,7 @@ fun void ddrumTrig()
         
         while(min.recv(msg))
         {
-            //<<< msg.data1, msg.data2, msg.data3 >>>;
+            <<< msg.data1, msg.data2, msg.data3 >>>;
             if( msg.data3!=0 && msg.data2 == 0 && hitBass==0) //kick drum
             {
                 //<<<bassindex>>>;
@@ -126,13 +127,12 @@ fun void ddrumTrig()
                 
                 //(msg.data2/80.0) => sin.gain;
                 1 => hitBass;
-                now-bassTime => interval; //starts at 1000ms
+                now - bassTime => interval; //starts at 1000ms
                 
                 interval/4 => hitInter;
                 now => bassTime;
                 //<<<chordGo>>>;
-                Math.random2(2,6) => float interDiv;
-             
+                Math.random2(2,6) => int interDiv;
                 
                 if(bSection == 0) //if in A section, hit the current note 4 times
                 {
@@ -142,13 +142,12 @@ fun void ddrumTrig()
                     
                     for(0 => int i; i < interDiv; i++)
                     {
-                        //Std.mtof(bass[bassindex]) => sin.freq;  //set the frequency
                         10000.0/(hitInter/1::ms) => currentPitch;  //set the frequency
                         currentPitch => sin.freq;
                         e1.keyOn();
-                        hitInter/(interDiv/2) => now;
+                        hitInter/(interDiv/2.0) => now;
                         e1.keyOff();
-                        hitInter/(interDiv/2) => now;
+                        hitInter/(interDiv/2.0) => now;
                     }
                 }
                 else
@@ -169,15 +168,13 @@ fun void ddrumTrig()
             }
             else if(msg.data3!=0 && msg.data2 == 1 && hitSnare==0) //snare
             {
+                <<<"inter", interDiv, hitInter/(interDiv/2.0)>>>;
                 e2.keyOff();
-                (currentPitch)*(3/2)*4 => saw.freq;
+                (currentPitch)*(3.0/2.0)*4.0 => saw.freq;
                 e2.keyOn();
-                hitInter/(interDiv/2) => now;
+                hitInter/((interDiv + 1)/2.0) => now;
                 e2.keyOff();
-                hitInter/(interDiv/2) => now;
-                
-                
-                
+                hitInter/((interDiv + 1)/2.0) => now;
             }
             else if(msg.data3!=0 && msg.data2 == 2 && hitTom == 0) //tom1: down a row
             {    
@@ -188,9 +185,6 @@ fun void ddrumTrig()
                 0.1::second => now;
                 e2.keyOff();
                 0.1::second => now;
-                
-                
-       
             }
             else if(msg.data3!=0 && msg.data2 == 54)
             {
@@ -205,7 +199,7 @@ fun void ddrumTrig()
             else if(msg.data3!=0 && msg.data2 == 55)
             {
                 e3.keyOff();
-                (currentPitch)*(15.0/4.0)*4.0 => osc3.freq;
+                (currentPitch)*(11.0/4.0)*4.0 => osc3.freq;
                 e3.keyOn();
                 0.05::second => now;
                 e3.keyOff();
@@ -215,7 +209,7 @@ fun void ddrumTrig()
             else if(msg.data3!=0 && msg.data2 == 56)
             {
                 e3.keyOff();
-                (currentPitch)*(23.0/4.0)*4.0 => osc3.freq;
+                (currentPitch)*(13.0/4.0)*4.0 => osc3.freq;
                 e3.keyOn();
                 0.05::second => now;
                 e3.keyOff();
@@ -225,7 +219,7 @@ fun void ddrumTrig()
             else if(msg.data3!=0 && msg.data2 == 57)
             {
                 e3.keyOff();
-                (currentPitch)*(25.0/4.0)*4.0 => osc3.freq;
+                (currentPitch)*(15.0/4.0)*4.0 => osc3.freq;
                 e3.keyOn();
                 0.05::second => now;
                 e3.keyOff();
@@ -235,7 +229,7 @@ fun void ddrumTrig()
             else if(msg.data3!=0 && msg.data2 == 58)
             {
                 e3.keyOff();
-                (currentPitch)*(27.0/4.0)*4.0 => osc3.freq;
+                (currentPitch)*(17.0/4.0)*4.0 => osc3.freq;
                 e3.keyOn();
                 0.05::second => now;
                 e3.keyOff();
@@ -245,7 +239,7 @@ fun void ddrumTrig()
             else if(msg.data3!=0 && msg.data2 == 59)
             {
                 e3.keyOff();
-                (currentPitch)*(29.0/4.0)*4.0 => osc3.freq;
+                (currentPitch)*(19.0/4.0)*4.0 => osc3.freq;
                 e3.keyOn();
                 0.05::second => now;
                 e3.keyOff();
