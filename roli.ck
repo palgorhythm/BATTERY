@@ -1,8 +1,5 @@
 MidiIn min;
 MidiMsg msg;
-//2/19 set: roli, evidence, frankin, 
-//lav town, for you, just, sand, peach 
-
 OscOut osc;
 osc.dest("10.10.10.1",6969);
 oscOut("/song",[4]);
@@ -23,7 +20,6 @@ now + 1000::second => time snareTime;
 [37, 44, 41, 36, 39, 32, 34, 39] @=> int bass[];
 [53, 60, 58, 63, 61, 56, 51 ] @=> int tom[];
 [63, 65, 67, 72, 65, 65, 63, 61, 58 ] @=> int snare[];
-//[63] @=> int snare[];
 
 
 PulseOsc sin => ADSR e1 => BiQuad f => PRCRev reverb1 => dac.left;

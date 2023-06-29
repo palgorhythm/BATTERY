@@ -5,19 +5,8 @@ OscOut osc;
 osc.dest("10.10.10.1",6969);
 oscOut("/song",[1]);
 
-//IDEAS: 1. drum and bass song
-// 2. song where each bd hit triggers fast rhythm that changes
-// 3. deerhoof cover
-// 4. EVIDENCE - monk : DO THIS FIRST
-// 5. morton feldman vibes
-// 6. use shakers ugen to trigger random environmental sounds
-//7. use voicForm to do crazy shit
-
-
 0 => int barIndex;
 0 => int melIndex;
-
-
 int hitTom;
 now=> time tomTime; //had added + 1000::second before, why???
 int hitBass;

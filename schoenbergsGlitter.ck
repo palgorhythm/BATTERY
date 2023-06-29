@@ -16,11 +16,6 @@ if(!min.open(port)) {
 4000 => int release;
 10 => int numHandlers;
 
-SqrOsc oscs[numVoices];
-ADSR adsrs[numVoices];
-PRCRev reverb[numVoices];
-BiQuad filter[numVoices];
-
 PulseOsc soloOsc;
 PRCRev soloReverb;
 ADSR soloAdsr;
@@ -28,10 +23,10 @@ BiQuad soloFilter;
 soloOsc => soloAdsr => soloReverb => soloFilter => dac;
 soloAdsr.set(10::ms, 500::ms, .1, 1000::ms);
 0.05 => soloReverb.mix;
-2 => soloOsc.gain;
+0.1 => soloFilter.gain;
+1 => soloOsc.gain;
 .99 => soloFilter.prad; 
 1 => soloFilter.eqzs;
-0.1 => soloFilter.gain;
 
 Shakers shaker => JCRev shakerReverb => dac;
 1 => shaker.gain;
@@ -46,21 +41,24 @@ fun void hitShaker(int velocity) {
   1 * velocityProportion => shaker.noteOn;
 }
 
+SqrOsc oscs[numVoices];
+ADSR adsrs[numVoices];
+PRCRev reverb[numVoices];
+BiQuad filter[numVoices];
 
 fun void configureOscillators() {
   for(0 => int i; i < numVoices; i++) {   
     if(i == 0) {
       oscs[i] => adsrs[i] => reverb[i] => dac.left;
-    }
-    else {
+    } else {
       oscs[i] => adsrs[i] => reverb[i] => dac.right;
     }
-    1.0 * (1.0 - (i / 10.0)) => oscs[i].gain;
+    1.0 * (1.0 - (i / 20.0)) => oscs[i].gain;
     adsrs[i].set(attack::ms, decay::ms, sustain, release::ms);
-    0.05 => reverb[i].mix;
+    0.07 => reverb[i].mix;
     .99 => filter[i].prad; 
     1 => filter[i].eqzs;
-    0.1 * (1.0 - (i / 10.0)) => filter[i].gain;
+    0.5 * (1.0 - (i / 20.0)) => filter[i].gain;
   }
 }
 
@@ -93,7 +91,7 @@ while(true) {
 0 => int melodyIndex;
 
 fun void handleMidiEvent(int midiNote, int velocity) {
-  ((velocity + 1.0) / 100.0) => float velocityProportion;
+  ((velocity + 0.1) / 127.0) => float velocityProportion;
   if(didInitializeChord > 0){ 
     // Initialize chord once to handle when kick is not hit first.
     [36, 36 + 7, 36 + 14, 36 + 21, 36 + 28]  @=> chord;
@@ -123,6 +121,8 @@ fun void handleMidiEvent(int midiNote, int velocity) {
     }
   } else if(midiNote == 1) { // snare
     Math.round(500 * velocityProportion) => float release;
+    0.2 => soloReverb.mix;
+    0.2 => soloFilter.gain;
     soloAdsr.set(10::ms, 10::ms, .9, release::ms);
     playNotes(
       [chord[Math.random2(1,4)] + (Math.random2(1,2) * 12)], 
@@ -131,6 +131,8 @@ fun void handleMidiEvent(int midiNote, int velocity) {
       (1.0 * velocityProportion)
     );
   } else if(midiNote == 2) { // floor tom
+    0.05 => soloReverb.mix;
+    0.1 => soloFilter.gain;
     Math.round(1000 * velocityProportion) => float release;
     soloAdsr.set(10::ms, 10::ms, .9, release::ms);
     playNotes(
@@ -142,6 +144,8 @@ fun void handleMidiEvent(int midiNote, int velocity) {
   } else if(midiNote >= 54 && midiNote <= 62) { // spd
     midiNote - 54 => int normalizedMidiNote;
     Math.round(normalizedMidiNote * 30 * velocityProportion) => float release;
+    0.01 => soloReverb.mix;
+    0.08 => soloFilter.gain;
     soloAdsr.set(10::ms, 10::ms, .9, release::ms);
     chord[normalizedMidiNote % chord.size()] + (Math.random2(2,3) * 12) => int midiNoteToPlay;
     hitShaker(velocity);
@@ -176,41 +180,6 @@ fun void playNotes(int notes[], ADSR adsrs[], Osc oscs[], float gain) {
   }
 }
 
-fun int[][] chordSequenceMidiNoteToNumbers(string chordSequence[][]) {
-  int chordSequenceNumbers[chordSequence.size()][chordSequence[0].size()];
-
-  for(0 => int i; i < chordSequence.size(); i++){
-    chordMidiNoteToNumbers(chordSequence[i]) @=> chordSequenceNumbers[i];
-  }
-  return chordSequenceNumbers;
-}
-
-fun int[] chordMidiNoteToNumbers(string chord[]) {
-    ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"] @=> string noteNames[];
-    string numToNote[127];
-    int noteToNum[127];
-    
-    //create array of midi notes indexed by integers 0-127
-    for(0 => int i; i < 127;i++) {
-        i % 12 => int mod;
-        -2 + (i / 12) => int counter;
-        noteNames[mod] + counter => numToNote[i];
-    }
-    
-    //create array indexed by midi notes (the inverse of B)
-    for(0 => int i; i < 127; i++) {
-        i => noteToNum[numToNote[i]];
-    }
-    
-    int numbers[chord.size()];
-    for(0 => int i; i < chord.size(); i++)
-    {
-        i % chord.size() => int index;
-        noteToNum[chord[index]] => numbers[i];
-    }
-    return numbers;
-}
-
 fun int[] generateRandomChord() {
   [
     [0,4,7,11,14], // Maj9
@@ -223,14 +192,14 @@ fun int[] generateRandomChord() {
   [0, 3, 6, 9, 11, 8, 5, 2, 1, 4, 7, 10] @=> int melodyIntervals[];
 
   int root;
-  if(playMelody == 1){
+  if(playMelody == 1) {
     36 + melodyIntervals[melodyIndex % melodyIntervals.size()] => root;
   } else {
     36 + (Math.random2(0, 11)) => root;
   }
   Math.random2(0, chordQualities.size() - 1) => int qualityIndex;
   chordQualities[qualityIndex] @=> int chord[];
-  for(0 => int i; i < chord.size(); i ++){
+  for(0 => int i; i < chord.size(); i ++) {
     Math.random2(1,3) => int randomOctave;
     if( i == 0 ){
       root + chord[i] => chord[i];
@@ -238,7 +207,5 @@ fun int[] generateRandomChord() {
       root + chord[i] + (randomOctave * 12) => chord[i];   
     }
   }
-  // <<<root>>>;
-  // <<<chord[0], chord[1], chord[2], chord[3], chord[4]>>>;
   return chord;
 }

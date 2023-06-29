@@ -5,15 +5,6 @@ OscOut osc;
 osc.dest("10.10.10.1",6969);
 oscOut("/song",[2]);
 
-//IDEAS: 1. drum and bass song
-// 2. song where each bd hit triggers fast rhythm that changes
-// 3. deerhoof cover
-// 4. EVIDENCE - monk : DO THIS FIRST
-// 5. morton feldman vibes
-// 6. use shakers ugen to trigger random environmental sounds
-//7. use voicForm to do crazy shit
-
-
 0 => int bassindex;
 0 => int snareindex;
 0 => int tomindex;

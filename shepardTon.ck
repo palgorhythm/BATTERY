@@ -1,16 +1,9 @@
 MidiIn min;
 MidiMsg msg;
-//140 bpm
 
 OscOut osc;
 osc.dest("10.10.10.1",6969);
 oscOut("/song",[1]);
-
-//hit bass drum, and pitch starts somewhere and keeps going down
-//(until it reaches a minimum pitch or we hit it again)
-//snare drum starts pitch somewhere and keeps going up 
-// (until vice versa)
-
 
 0 => int bassindex;
 0 => int melodyindex;
@@ -45,12 +38,12 @@ e1.set( 10::ms, 10::ms, 0.5, 20::ms );
 0.1 => bassOsc.gain;
 
 
-SawOsc melodyOsc => SawOsc overdrive2 =>  ADSR e2 => PRCRev reverb2 => dac.right;
+SinOsc melodyOsc => SawOsc overdrive2 =>  ADSR e2 => PRCRev reverb2 => dac.right;
 e2.set( 10::ms, 10::ms, .5, 20::ms );
 1 => overdrive2.sync; 
-2 => melodyOsc.gain;
-2 => overdrive2.gain;
-.05 => reverb2.mix;
+20 => melodyOsc.gain;
+20 => overdrive2.gain;
+.01 => reverb2.mix;
 
 PulseOsc bassOsc2 => ADSR e3 => BiQuad f3  => dac.right;
 .99 => f3.prad; 

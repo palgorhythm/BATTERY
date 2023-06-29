@@ -1,8 +1,6 @@
 MidiIn min;
 MidiMsg msg;
 
-//160 bpm
-
 OscOut osc; 
 osc.dest("10.10.10.1",6969);
 oscOut("/song",[3]);

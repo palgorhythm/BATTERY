@@ -4,7 +4,6 @@ MidiMsg msg;
 OscOut osc;
 osc.dest("10.10.10.1",6969);
 oscOut("/song",[7]);
-//ideal bpm: 170;
 
 0 => int device;
 0 => int c;
@@ -25,12 +24,6 @@ notes2nums(["G3"],1) @=> int transitionMelody[];
 notes2nums(["D#2"],1) @=> int transitionBass[];
 notes2nums(["F#3", "E3", "F#3", "E3", "G3", "G3","G3","G3"],1) @=> int melodyC[]; //length 8
 notes2nums(["D2", "C2", "D2", "C2", "E1", "D#1", "C1", "G#0"],1) @=> int bassC[];
-
-//notes2nums(["F4","G4","C4"],13) @=> int lineA1[]; //13x
-//notes2nums(["C#4","G#4","A#4"],13) @=> int lineA2[]; //13x
-//notes2nums(["G4","A4","D5"],7) @=> int lineB1[]; //7x
-//notes2nums(["A4","B4","E5"],13) @=> int lineB2[]; //13x
-
 notes2nums(["F4","G4","C4"],1) @=> int lineA1[]; //13x
 notes2nums(["C#4","G#4","A#4"],1) @=> int lineA2[]; //13x
 notes2nums(["G4","A4","D5"],1) @=> int lineB1[]; //7x

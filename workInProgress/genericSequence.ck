@@ -68,49 +68,44 @@ if(!min.open(port)) {
 int numVoices;
 chordStrings[0].size() => numVoices;
 int chords[chordStrings.size()][numVoices];
-chordSequenceMidiNoteToNumbers(chordStrings) @=> chords;
+chordSequenceMidiNotesToNumbers(chordStrings) @=> chords;
 
 <<<"Translated MIDI chords into note numbers.">>>;
 
 0 => int chordIndex;
-0 => int chordSustain;
-50 => int minSustain;
-5000 => int maxSustain;
 0 => int soloOctave;
 
-SawOsc oscArray[numVoices];
-ADSR adsr[numVoices];
-PRCRev reverb[numVoices];
-BiQuad filter[numVoices];
+SawOsc chordOscs[numVoices];
+ADSR chordAdsr[numVoices];
+PRCRev chordReverb[numVoices];
+BiQuad chordFilter[numVoices];
 
 for(0 => int i; i < numVoices; i++) {   
   if(i == 0) {
-      oscArray[i] => adsr[i] => reverb[i] => dac.left;
+      chordOscs[i] => chordAdsr[i] => chordReverb[i] => dac.left;
   }
   else {
-      oscArray[i] => adsr[i] => reverb[i] => dac.right;
+      chordOscs[i] => chordAdsr[i] => chordReverb[i] => dac.right;
   }
-  2 * (1 - (i / 20)) => oscArray[i].gain;
-  adsr[i].set(20::ms, 10::ms, .9, 500::ms);
-  0.01 => reverb[i].mix;
-  .99 => filter[i].prad; 
-  1 => filter[i].eqzs;
-  (7 - i) * .07 => filter[i].gain;
+  1.0 * (1.0 - (i / 20.0)) => chordOscs[i].gain;
+  chordAdsr[i].set(20::ms, 10::ms, .9, 500::ms);
+  0.01 => chordReverb[i].mix;
+  .99 => chordFilter[i].prad; 
+  1 => chordFilter[i].eqzs;
+  (7.0 - i) * .1 => chordFilter[i].gain;
 }
 
 PulseOsc soloOsc;
 ADSR soloAdsr;
 BiQuad soloFilter;
 soloOsc => soloAdsr => soloFilter => dac.right;
-soloAdsr.set(5::ms, 5::ms, .5, 20::ms);
+soloAdsr.set(5::ms, 5::ms, .9, 30::ms);
 0.9 => soloOsc.gain;
 .99 => soloFilter.prad; 
 5 => soloFilter.eqzs;
-0.9 => soloFilter.gain;
+1.0 => soloFilter.gain;
 
 <<<"Created Oscillators!">>>;
-
-1 => int numBassHits;
 
 3 => int numHandlers;
 
@@ -136,34 +131,33 @@ while(true) {
 
 fun void handleMidiEvent(int midiNote) {
   if(midiNote == 0) { // kick drum
-    for(0 => int i; i < numVoices; i++) {   
-      (((chordIndex + 1) / chords.size()) * maxSustain) + minSustain => chordSustain;
-      adsr[i].set(20::ms, 10::ms, .9, chordSustain::ms);   
-      adsr[i].keyOff(); 
-      Std.mtof(chords[chordIndex][i]) => oscArray[i].freq;
-      adsr[i].keyOn();
+    for(0 => int i; i < numVoices; i++) {  
+      getSustain(chordIndex) => int sustain; 
+      chordAdsr[i].set(10::ms, 40::ms, .9, sustain::ms); 
+      chordAdsr[i].keyOff(); 
+      Std.mtof(chords[chordIndex % chords.size()][i]) => chordOscs[i].freq;
+      chordAdsr[i].keyOn();
     }
-    20::ms => now;
+    10::ms => now;
     for(0 => int i; i < numVoices; i++) {
-      adsr[i].keyOff();
+      chordAdsr[i].keyOff();
     }
 
     (chordIndex + 1) % chords.size() => chordIndex;
-  } else if(midiNote >= 54 && midiNote <= 58) {
+  } else if(midiNote >= 54 && midiNote <= 58) { // SPD
     midiNote - 54 => int spdPadNumber;
     int chordMidiNote;
     chords[chordIndex % chords.size()][spdPadNumber] => chordMidiNote;
-    if(spdPadNumber == 0) { // If it's the first pad, pitch it up so we don't play the bass!
+    if(spdPadNumber == 0) { // If it's the first pad, pitch it up so we don't play the super low bass note!
       chordMidiNote + 12 => chordMidiNote;
     }
 
     int midiNoteToPlay;
     chordMidiNote + (soloOctave * 12) => midiNoteToPlay;
     Std.mtof(midiNoteToPlay) => soloOsc.freq;
-    
     soloAdsr.keyOff();
     soloAdsr.keyOn();
-    20::ms=>now;
+    10::ms=>now;
     soloAdsr.keyOff();  
   } else if(midiNote >= 61 && midiNote <= 62) {
     if(midiNote == 61) {
@@ -174,40 +168,52 @@ fun void handleMidiEvent(int midiNote) {
   }
 }
 
+fun int getSustain(int chordIndex) {
+  if(chordIndex <= 13) {
+    return 400;  
+  } else if(chordIndex <= 27) {
+    return 800;
+  } else if(chordIndex <= 35) {
+    return 2000;
+  } else {
+    return 4000;
+  }
+}
+
 
 ///UTIL FUNCTIONS///
 
-function int[][] chordSequenceMidiNoteToNumbers(string chordSequence[][]) {
+function int[][] chordSequenceMidiNotesToNumbers(string chordSequence[][]) {
   int chordSequenceNumbers[chordSequence.size()][chordSequence[0].size()];
 
-  for(0 => int i; i < chordSequence.size(); i++){
-    chordMidiNoteToNumbers(chordSequence[i]) @=> chordSequenceNumbers[i];
+  for(0 => int i; i < chordSequence.size(); i++) {
+    chordMidiNotesToNumbers(chordSequence[i]) @=> chordSequenceNumbers[i];
   }
   return chordSequenceNumbers;
 }
 
-function int[] chordMidiNoteToNumbers(string chord[]) {
+function int[] chordMidiNotesToNumbers(string chord[]) {
     ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"] @=> string noteNames[];
     string numToNote[127];
     int noteToNum[127];
     
-    //create array of midi notes indexed by integers 0-127
-    for(0 => int i; i<127;i++) {
-        i % 12 => int mod;
-        -2 + (i / 12) => int counter;
-        noteNames[mod] + counter => numToNote[i];
+    // create array mapping midi note number to name (with octave)
+    for(0 => int i; i < 127; i++) {
+      i % 12 => int mod;
+      -2 + (i / 12) => int octaveNumber;
+      noteNames[mod] + octaveNumber => numToNote[i];
     }
     
-    //create array indexed by midi notes (the inverse of B)
-    for(0 => int i; i<127; i++) {
-        i => noteToNum[numToNote[i]];
+    // create array mapping midi note name to number (the inverse of numToNote)
+    for(0 => int i; i < 127; i++) {
+      i => noteToNum[numToNote[i]];
     }
     
+    // use noteToNum to map each midi note name to midi note number.
     int numbers[chord.size()];
-    for(0 => int i; i<chord.size();i++)
-    {
-        i % chord.size() => int index;
-        noteToNum[chord[index]] => numbers[i];
+    for(0 => int i; i < chord.size(); i++) {
+      noteToNum[chord[i]] => numbers[i];
     }
+
     return numbers;
 }
