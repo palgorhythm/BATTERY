@@ -67,7 +67,7 @@ e2.set( 10::ms, 20::ms, .5, 1000::ms );
 .03 => reverb2.mix;
 
 //MIDI port
-0 => int port;
+1 => int port;
 
 if( !min.open(port))
 {
@@ -120,6 +120,9 @@ fun void ddrumTrig()
         while(min.recv(msg))
         {
             //<<< msg.data1, msg.data2, msg.data3 >>>;
+            if(msg.data3 != 0){
+                <<<"songSectionIndex", globalChordIndex,"chordIndex", chordindex>>>;
+            }
             if( msg.data3!=0 && msg.data2 == 0 && hitBass==0) //kick drum
             {
                 //<<<bassindex>>>;

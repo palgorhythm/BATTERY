@@ -1,9 +1,25 @@
 MidiIn min;
 MidiMsg msg;
-
-OscOut osc;
-osc.dest("10.10.10.1",6969);
-oscOut("/song",[1]);
+fun void setUpMidi() {
+    [0,1,2,3,4,5] @=> int ports[];
+    0 => int hasOpenPort;
+    0 => int openPort;
+    for(0 => int i; i < ports.size(); i++){
+        if(min.open(ports[i]) && min.name() == "SPD-SX") {
+            ports[i] => openPort;
+            1 => hasOpenPort;
+            break;
+        }
+    }
+    
+    if(hasOpenPort == 0) {
+        <<<"ERROR: SPD-SX MIDI port not found.">>>;
+        me.exit();
+    } else {
+        <<<"Opened SPD on port", openPort>>>;
+    }
+}
+setUpMidi();
 
 0 => int bassindex;
 0 => int melodyindex;
@@ -26,50 +42,39 @@ now => time snareTime;
 [45,38,39,40,47,50,43,36] @=> int bass[];
 [60,64,67,66,76,71,64,71] @=> int melody[];
 
-SawOsc bassOsc => SawOsc c => SawOsc overdrive => ADSR e1  => BiQuad f => dac.left;
+0.03 => float defaultGain;
+
+SawOsc bassOsc => SawOsc c => SawOsc overdrive => ADSR e1  => BiQuad f => PRCRev reverb1 => dac;
 .99 => f.prad; 
 1 => f.eqzs;
-0.01 => f.gain;
 1 => overdrive.sync; // set sync option to Phase Mod.
-100 => overdrive.gain;
-200 => c.gain;
-1 => c.freq;
-e1.set( 10::ms, 10::ms, 0.5, 20::ms );
-0.1 => bassOsc.gain;
+1 => c.sync;
+1000 => bassOsc.gain;
+500 => c.gain;
+500 => overdrive.gain;
+1  => c.freq;
+e1.set( 10::ms, 10::ms, .5, 20::ms );
+defaultGain * 0.0000000005 => f.gain;
+.03 => reverb1.mix;
 
-
-SinOsc melodyOsc => SawOsc overdrive2 =>  ADSR e2 => PRCRev reverb2 => dac.right;
+PulseOsc melodyOsc => SawOsc overdrive2 => ADSR e2 => PRCRev reverb2 => dac;
 e2.set( 10::ms, 10::ms, .5, 20::ms );
 1 => overdrive2.sync; 
-20 => melodyOsc.gain;
-20 => overdrive2.gain;
-.01 => reverb2.mix;
+1000 => melodyOsc.gain;
+defaultGain * 0.05 => overdrive2.gain;
+.03 => reverb2.mix;
 
-PulseOsc bassOsc2 => ADSR e3 => BiQuad f3  => dac.right;
+SawOsc bassOsc2 => ADSR e3 => BiQuad f3 => PRCRev reverb3 => dac;
 .99 => f3.prad; 
 1 => f3.eqzs;
-.2 => f3.gain;
-5 => bassOsc2.gain;
+defaultGain * 15.0 => bassOsc2.gain;
+defaultGain * 15.0 => f3.gain;
 e3.set( 100::ms, 10::ms, .5, 20::ms );
-
-
-
-
-
-//MIDI port
-0 => int port;
-
-if(!min.open(port))
-{
-    <<<"ERROR: midi port didn't open on port:", port>>>;
-    me.exit();
-}
+.05 => reverb3.mix;
 
 spork ~ ddrumTrig();
 20::ms => now;
 spork ~ voiceGate();
-
-oscOut("/songSection",[0]); 
 
 while(true)
 {
@@ -124,11 +129,7 @@ fun void ddrumTrig()
                 
                 spork ~ pitchRamp("down",Std.mtof(bass[bassindex]), bassOsc, e1) @=> bassShred;
 
-                now => bassTime;
-                
-                oscOut("/bass",[bass[bassindex]]); //OSC
-       
-                    
+                now => bassTime;  
             }   
             else if(msg.data3!=0 && msg.data2 == 1 && hitSnare==0) //snare
             {
@@ -139,17 +140,12 @@ fun void ddrumTrig()
                     Machine.remove(melodyShred.id());
                 }
                 
-                spork ~ pitchRamp("up",Std.mtof(melody[melodyindex]),melodyOsc,e2) @=> melodyShred;
-            
-                
-                oscOut("/melody",[melody[melodyindex]]); //OSC!
+                spork ~ pitchRamp("up",Std.mtof(melody[melodyindex]), melodyOsc ,e2) @=> melodyShred;
+           
        
                 now => snareTime;             
-                
-              
-                
-    
-}
+
+            }
             else if(msg.data3!=0 && msg.data2 == 2 && hitTom == 0) //tom1: down a row
             {    
                 e1.keyOff();
@@ -210,34 +206,31 @@ function void pitchRamp(string downOrUp, float freq, Osc osc, ADSR adsr)
     if(downOrUp == "down")
     {
         if(freq <= 0){
+            adsr.keyOff();
             return;
         }
         
-        freq => bassOsc.freq;
+        freq => osc.freq;
         freq => float startFreq;
         adsr.keyOn();
         300::ms => now;
         
         while(freq > 0)
         {
-            50::ms => now;
-            freq - 0.75 => freq;
+            freq - (1.5) => freq;
             freq => osc.freq;
+            50::ms => now;
         }
-        50::ms => now;
         adsr.keyOff();
     }
     else if (downOrUp == "up")
     {
-        2.0 => melodyOsc.gain;
-        freq => melodyOsc.freq;
+        500.0 => osc.gain;
+        freq => osc.freq;
         Std.mtof(bass[bassindex]) => float startFreq;
         adsr.keyOn();
-        if(melodyOn){
-            0.01=>bassOsc.gain;
-        }
         10::ms=> now;
-        while(freq<startFreq*100.0)
+        while(freq < startFreq*100.0)
         {
             if(melodyOn)
             {
@@ -305,14 +298,4 @@ function int[] changeOctave(int noteNums[], string choice, int x)
         <<<"ERROR">>>;
     }
     return result;
-}
-
-fun void oscOut(string addr, int val[]){
-    osc.start(addr);
-    
-    for(0 => int i; i<val.size(); i++)
-    {
-        osc.add(val[i]);
-    }
-    osc.send();
 }

@@ -1,11 +1,25 @@
 MidiIn min;
 MidiMsg msg;
-0 => int port;
-
-if(!min.open(port)) {
-  <<<"ERROR: midi didn't open on port:", port>>>;
-  me.exit();
+fun void setUpMidi() {
+    [0,1,2,3,4,5] @=> int ports[];
+    0 => int hasOpenPort;
+    0 => int openPort;
+    for(0 => int i; i < ports.size(); i++){
+        if(min.open(ports[i]) && min.name() == "SPD-SX") {
+            ports[i] => openPort;
+            1 => hasOpenPort;
+            break;
+        }
+    }
+    
+    if(hasOpenPort == 0) {
+        <<<"ERROR: SPD-SX MIDI port not found.">>>;
+        me.exit();
+    } else {
+        <<<"Opened SPD on port", openPort>>>;
+    }
 }
+setUpMidi();
 
 // set up sequences
 [29, 29, 43, 38, 29, 29, 43, 38, 29, 29, 43, 38, 32, 48, 43, 41] @=> int bass[];
@@ -22,33 +36,31 @@ chordSequenceMidiNotesToNumbers([
 ]) @=> int chords[][];
 chordMidiNotesToNumbers(["A3","A3", "D4","E4","B3","E3","A3","C3","E4","A3","A3","D4","E4","G4","A4","B4","E5"]) @=> int snare[];
 
+1 => float defaultGain;
+
 // set up oscillators
-PulseOsc sin => ADSR e1 => BiQuad f => PRCRev reverb1 => dac.left;
-e1.set( 10::ms, 20::ms, .5, 80::ms );
+PulseOsc sin => ADSR e1 => BiQuad f => PRCRev reverb1 => dac;
+e1.set( 10::ms, 10::ms, 0.5, 40::ms );
 .99 => f.prad; 
 1 => f.eqzs;
-.05 => f.gain;
-0.8 => sin.gain;
-.01 => reverb1.mix;
+.1 => f.gain;
+0.05 * defaultGain => sin.gain;
+.03 => reverb1.mix;
 
-PulseOsc saw => ADSR e2 => PRCRev reverb2 => dac.right;
+PulseOsc saw => ADSR e2 => PRCRev reverb2 => dac;
 e2.set( 10::ms, 20::ms, .5, 1000::ms );
-1.0 => saw.gain;
-.1 => reverb2.mix;
+0.3 * defaultGain => saw.gain;
+.2 => reverb2.mix;
 
 SawOsc OSCarray[6];
 ADSR E[6];
 PRCRev R[6];
 
 for(0 => int i; i < 6; i++) {   
-  if(i == 0) {
-    OSCarray[i] => E[i] => R[i] => dac.left;
-  } else {
-    OSCarray[i] => E[i] => R[i] => dac.right;
-  }
-  1.0 * (1.0 - (i / 30.0)) => OSCarray[i].gain;
-  E[i].set(10::ms, 20::ms, .9, 4000::ms);
-  0.01 => R[i].mix;
+  OSCarray[i] => E[i] => R[i] => dac;
+  defaultGain * 0.6 * (1.0 - (i / 25.0)) => OSCarray[i].gain;
+  E[i].set(10::ms, 6000::ms, 0.5, 6000::ms);
+  0.03 => R[i].mix;
 }
 
 // initialize our state variables
@@ -60,7 +72,7 @@ for(0 => int i; i < 6; i++) {
 0 => int songSectionIndex;
 0 => int interDiv;
 now  => time bassTime;
-40::ms => dur interval; // duration between bass drum hits
+10::ms => dur interval; // duration between bass drum hits
 interval / 4 => dur hitInter; // duration for each synth sound
 
 spork ~ handleMidiEvents();
@@ -75,7 +87,9 @@ fun void handleMidiEvents() {
   while(true) {
     min => now;
     while(min.recv(msg)) {
-      <<<"songSectionIndex", songSectionIndex,"chordIndex", chordIndex>>>;
+      if(msg.data3 != 0){
+          <<<"midi note", msg.data2, "velocity", msg.data3>>>;
+      }
       if(msg.data3 != 0 && msg.data2 == 0) { // kick drum
         e1.keyOff();
         now - bassTime => interval; // the amount of time since the last time we hit the bass drum.
@@ -92,9 +106,9 @@ fun void handleMidiEvents() {
           for(0 => int i; i < interDiv; i++) {
             Std.mtof(bass[bassIndex]) => sin.freq;
             e1.keyOn();
-            hitInter/(interDiv / 2.0) => now; // these ensure that the total amount of time that passes after this loop is hitInter
+            hitInter/(interDiv * (1.0/2.0)) => now; // these ensure that the total amount of time that passes after this loop is hitInter
             e1.keyOff();
-            hitInter/(interDiv / 2.0) => now;
+            hitInter/(interDiv * (1.0/2.0)) => now;
           }
         } else if(chordGo == 1) {
           for(0 => int i; i < chords[chordIndex].size(); i++) {

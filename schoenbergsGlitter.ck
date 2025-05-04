@@ -1,13 +1,25 @@
-<<<"Starting...">>>;
-
 MidiIn min;
 MidiMsg msg;
-0 => int port; // MIDI port
-if(!min.open(port)) {
-  <<<"ERROR: midi port didn't open on port:", port>>>;
-  me.exit();
+fun void setUpMidi() {
+    [0,1,2,3,4,5] @=> int ports[];
+    0 => int hasOpenPort;
+    0 => int openPort;
+    for(0 => int i; i < ports.size(); i++){
+        if(min.open(ports[i]) && min.name() == "SPD-SX") {
+            ports[i] => openPort;
+            1 => hasOpenPort;
+            break;
+        }
+    }
+    
+    if(hasOpenPort == 0) {
+        <<<"ERROR: SPD-SX MIDI port not found.">>>;
+        me.exit();
+    } else {
+        <<<"Opened SPD on port", openPort>>>;
+    }
 }
-<<<"MIDI connected!">>>;
+setUpMidi();
 
 5 => int numVoices;
 10 => int attack;
@@ -15,22 +27,24 @@ if(!min.open(port)) {
 0.5 => float sustain;
 4000 => int release;
 10 => int numHandlers;
+0.5 => float defaultGain;
 
 PulseOsc soloOsc;
 PRCRev soloReverb;
 ADSR soloAdsr;
 BiQuad soloFilter;
-soloOsc => soloAdsr => soloReverb => soloFilter => dac;
+soloOsc => soloAdsr => soloReverb => soloFilter => Pan2 soloPan => dac;
 soloAdsr.set(10::ms, 500::ms, .1, 1000::ms);
 0.05 => soloReverb.mix;
-0.1 => soloFilter.gain;
-1 => soloOsc.gain;
+0.2 => soloPan.pan;
+defaultGain * 0.1 => soloFilter.gain;
+defaultGain * 1.2 => soloOsc.gain;
 .99 => soloFilter.prad; 
 1 => soloFilter.eqzs;
 
 Shakers shaker => JCRev shakerReverb => dac;
 1 => shaker.gain;
-0.95 => shakerReverb.gain;
+defaultGain * 0.9 => shakerReverb.gain;
 .025 => shakerReverb.mix;
 
 fun void hitShaker(int velocity) {
@@ -45,20 +59,18 @@ SqrOsc oscs[numVoices];
 ADSR adsrs[numVoices];
 PRCRev reverb[numVoices];
 BiQuad filter[numVoices];
+Pan2 pan[numVoices];
 
 fun void configureOscillators() {
   for(0 => int i; i < numVoices; i++) {   
-    if(i == 0) {
-      oscs[i] => adsrs[i] => reverb[i] => dac.left;
-    } else {
-      oscs[i] => adsrs[i] => reverb[i] => dac.right;
-    }
-    1.0 * (1.0 - (i / 20.0)) => oscs[i].gain;
+    oscs[i] => adsrs[i] => reverb[i] => pan[i] => dac;
+    -0.1 * i => pan[i].pan;
     adsrs[i].set(attack::ms, decay::ms, sustain, release::ms);
     0.07 => reverb[i].mix;
     .99 => filter[i].prad; 
     1 => filter[i].eqzs;
-    0.5 * (1.0 - (i / 20.0)) => filter[i].gain;
+    defaultGain * 1.0 * (1.0 - (i / 10.0)) => oscs[i].gain;
+    defaultGain * 0.5 * (1.0 - (i / 10.0)) => filter[i].gain;
   }
 }
 
@@ -122,7 +134,7 @@ fun void handleMidiEvent(int midiNote, int velocity) {
   } else if(midiNote == 1) { // snare
     Math.round(500 * velocityProportion) => float release;
     0.2 => soloReverb.mix;
-    0.2 => soloFilter.gain;
+    defaultGain * 0.2 => soloFilter.gain;
     soloAdsr.set(10::ms, 10::ms, .9, release::ms);
     playNotes(
       [chord[Math.random2(1,4)] + (Math.random2(1,2) * 12)], 
@@ -132,7 +144,7 @@ fun void handleMidiEvent(int midiNote, int velocity) {
     );
   } else if(midiNote == 2) { // floor tom
     0.05 => soloReverb.mix;
-    0.1 => soloFilter.gain;
+    defaultGain * 0.2 => soloFilter.gain;
     Math.round(1000 * velocityProportion) => float release;
     soloAdsr.set(10::ms, 10::ms, .9, release::ms);
     playNotes(
@@ -145,7 +157,7 @@ fun void handleMidiEvent(int midiNote, int velocity) {
     midiNote - 54 => int normalizedMidiNote;
     Math.round(normalizedMidiNote * 30 * velocityProportion) => float release;
     0.01 => soloReverb.mix;
-    0.08 => soloFilter.gain;
+    defaultGain * 0.12 => soloFilter.gain;
     soloAdsr.set(10::ms, 10::ms, .9, release::ms);
     chord[normalizedMidiNote % chord.size()] + (Math.random2(2,3) * 12) => int midiNoteToPlay;
     hitShaker(velocity);
@@ -169,7 +181,7 @@ fun void handleMidiEvent(int midiNote, int velocity) {
 fun void playNotes(int notes[], ADSR adsrs[], Osc oscs[], float gain) {
   for(0 => int i; i < notes.size(); i++) {
     adsrs[i].keyOff(); 
-    gain * (1.0 - (i / 10.0)) => oscs[i].gain;
+    defaultGain * gain * (1.0 - (i / 5.0)) => oscs[i].gain;
     Math.random2f(0.0, 1.0) => oscs[i].phase;
     Std.mtof(notes[i]) => oscs[i].freq;
     adsrs[i].keyOn();

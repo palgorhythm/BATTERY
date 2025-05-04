@@ -1,7 +1,26 @@
 MidiIn min;
 MidiMsg msg;
+fun void setUpMidi() {
+    [0,1,2,3,4,5] @=> int ports[];
+    0 => int hasOpenPort;
+    0 => int openPort;
+    for(0 => int i; i < ports.size(); i++){
+        if(min.open(ports[i]) && min.name() == "SPD-SX") {
+            ports[i] => openPort;
+            1 => hasOpenPort;
+            break;
+        }
+    }
+    
+    if(hasOpenPort == 0) {
+        <<<"ERROR: SPD-SX MIDI port not found.">>>;
+        me.exit();
+    } else {
+        <<<"Opened SPD on port", openPort>>>;
+    }
+}
+setUpMidi();
 
-0 => int device;
 
 int hitTom;
 now + 1000::second => time tomTime;
@@ -41,16 +60,6 @@ Noise n3 => Gain g3 => BiQuad f3 => dac.right;
 // set equal zeros 
 10 => f3.eqzs;
 
-
-//MIDI port
-0 => int port;
-
-if( !min.open(port))
-{
-    <<<"ERROR: midi port didn't open on port:", port>>>;
-    me.exit();
-}
-
 spork ~ ddrumTrig();
 20::ms => now;
 spork ~ ddrumTrig();
@@ -87,7 +96,7 @@ fun void ddrumTrig()
     while(true)
     {
         min => now;
-        //<<<(msg.data2)>>>;
+        <<<(msg.data2)>>>;
         
         while(min.recv(msg))
         {
@@ -96,8 +105,8 @@ fun void ddrumTrig()
             {
                 0 => g1.gain;
                 1.5 * msg.data3/127.0 => g2.gain;
-                50.0 * Std.rand2f(1.0,20.0) => float a;
-                Std.rand2f(100.0,500.0) => float b;
+                50.0 * Std.rand2f(1.0,10.0) => float a;
+                Std.rand2f(50.0,100.0) => float b;
                 a => f2.pfreq;
                 b::ms => now;   
                 0 => g2.gain;           
@@ -105,19 +114,19 @@ fun void ddrumTrig()
             else if(msg.data3!=0 && msg.data2 == 1) //snare
             {
                 5.0 * msg.data3/127.0 => g2.gain;
-                100.0 * Std.rand2f(10.0,50.0) => float a;
-                Std.rand2f(100.0,2000.0) => float b;
+                500.0 * Std.rand2f(1.0,2.0) => float a;
+                Std.rand2f(50.0,200.0) => float b;
                 a => f2.pfreq;
                 b::ms => now;   
                 0 => g2.gain;
             }
             else if(msg.data3!=0 && msg.data2 == 2) //tom1: down a row
             {        
-                msg.data3/127.0 => g1.gain;       
+                5.0 * msg.data3/127.0 => g1.gain;     
                 Std.rand2f(50.0,500.0) => float a; 
                 a => f1.pfreq;
-                Std.rand2f(8000.0,10000.0) => f2.pfreq;
-                Std.rand2f(200.0,1000.0) => float b;
+                Std.rand2f(5000.0,10000.0) => f2.pfreq;
+                Std.rand2f(200.0,10000.0) => float b;
                 b::ms => now;   
                 0 => g3.gain;
                 0 => g.gain;

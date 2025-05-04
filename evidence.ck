@@ -1,13 +1,25 @@
-<<<"Starting...">>>;
-
 MidiIn min;
 MidiMsg msg;
-0 => int port; // MIDI port
-if(!min.open(port)) {
-  <<<"ERROR: midi port didn't open on port:", port>>>;
-  me.exit();
+fun void setUpMidi() {
+    [0,1,2,3,4,5] @=> int ports[];
+    0 => int hasOpenPort;
+    0 => int openPort;
+    for(0 => int i; i < ports.size(); i++){
+        if(min.open(ports[i]) && min.name() == "SPD-SX") {
+            ports[i] => openPort;
+            1 => hasOpenPort;
+            break;
+        }
+    }
+    
+    if(hasOpenPort == 0) {
+        <<<"ERROR: SPD-SX MIDI port not found.">>>;
+        me.exit();
+    } else {
+        <<<"Opened SPD on port", openPort>>>;
+    }
 }
-<<<"MIDI connected!">>>;
+setUpMidi();
 
 [
   ["D#0","G2", "A#2", "C3", "D3"], 
@@ -80,30 +92,29 @@ ADSR chordAdsr[numVoices];
 PRCRev chordReverb[numVoices];
 BiQuad chordFilter[numVoices];
 
+0.03 => float defaultGain;
+
 for(0 => int i; i < numVoices; i++) {   
-  if(i == 0) {
-      chordOscs[i] => chordAdsr[i] => chordReverb[i] => dac.left;
-  }
-  else {
-      chordOscs[i] => chordAdsr[i] => chordReverb[i] => dac.right;
-  }
-  1.0 * (1.0 - (i / 20.0)) => chordOscs[i].gain;
+  chordOscs[i] => chordAdsr[i] => chordReverb[i] => dac;
   chordAdsr[i].set(20::ms, 10::ms, .9, 500::ms);
   0.01 => chordReverb[i].mix;
   .99 => chordFilter[i].prad; 
   1 => chordFilter[i].eqzs;
-  (7.0 - i) * .1 => chordFilter[i].gain;
+  defaultGain * 12.0 * (1.0 - (i / 10.0)) => chordOscs[i].gain;
+  defaultGain * (7.0 - i) => chordFilter[i].gain;
 }
 
 PulseOsc soloOsc;
 ADSR soloAdsr;
 BiQuad soloFilter;
-soloOsc => soloAdsr => soloFilter => dac.right;
+PRCRev soloReverb;
+soloOsc => soloAdsr => soloFilter => soloReverb => dac;
 soloAdsr.set(5::ms, 5::ms, .9, 30::ms);
-0.9 => soloOsc.gain;
-.99 => soloFilter.prad; 
-5 => soloFilter.eqzs;
-1.0 => soloFilter.gain;
+.95 => soloFilter.prad; 
+1 => soloFilter.eqzs;
+0.01 => soloReverb.mix;
+defaultGain * 8.0 => soloOsc.gain;
+defaultGain * 8.0 => soloFilter.gain;
 
 <<<"Created Oscillators!">>>;
 
@@ -144,10 +155,11 @@ fun void handleMidiEvent(int midiNote) {
     }
 
     (chordIndex + 1) % chords.size() => chordIndex;
-  } else if(midiNote >= 54 && midiNote <= 58) { // SPD
+  } else if(midiNote >= 54 && midiNote <= 62) { // SPD
+      
     midiNote - 54 => int spdPadNumber;
     int chordMidiNote;
-    chords[chordIndex % chords.size()][spdPadNumber] => chordMidiNote;
+    chords[((chordIndex + chords.size()) - 1) % chords.size()][spdPadNumber % 5] => chordMidiNote;
     if(spdPadNumber == 0) { // If it's the first pad, pitch it up so we don't play the super low bass note!
       chordMidiNote + 12 => chordMidiNote;
     }

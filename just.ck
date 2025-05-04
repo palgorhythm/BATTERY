@@ -1,6 +1,27 @@
 MidiIn min;
 MidiMsg msg;
+fun void setUpMidi() {
+    [0,1,2,3,4,5] @=> int ports[];
+    0 => int hasOpenPort;
+    0 => int openPort;
+    for(0 => int i; i < ports.size(); i++){
+        if(min.open(ports[i]) && min.name() == "SPD-SX") {
+            ports[i] => openPort;
+            1 => hasOpenPort;
+            break;
+        }
+    }
+    
+    if(hasOpenPort == 0) {
+        <<<"ERROR: SPD-SX MIDI port not found.">>>;
+        me.exit();
+    } else {
+        <<<"Opened SPD on port", openPort>>>;
+    }
+}
+setUpMidi();
 
+0.20 => float defaultGain;
 0 => int bassindex;
 0 => int snareindex;
 0 => int tomindex;
@@ -37,17 +58,19 @@ for(0 => int i; i<Bchords.size(); i++) //convert to MIDI notes
 }
 
 Shakers shake => dac;
-10.0 => shake.gain;
+defaultGain * 5.0 => shake.gain;
 
 SawOsc soloOsc;
 ADSR soloADSR;
 BiQuad soloFilt;
-soloOsc => soloADSR => soloFilt => dac;
+PRCRev soloRev;
+soloOsc => soloADSR => soloFilt => soloRev => dac;
 soloADSR.set(5::ms, 5::ms, .5, 20::ms);
-0.9 => soloOsc.gain;
+defaultGain * 0.2 => soloOsc.gain;
+0.01 => soloRev.mix;
 .99 => soloFilt.prad; 
 5 => soloFilt.eqzs;
-0.9 => soloFilt.gain;
+defaultGain * 10.0 => soloFilt.gain;
 
 
 PulseOsc OSCarray[chordSize];
@@ -55,7 +78,7 @@ ADSR E[chordSize];
 PRCRev R[chordSize];
 BiQuad F[chordSize];
 
-for( 0 => int i; i<chordSize; i++)
+for( 0 => int i; i<chordSize; i++) 
 {   
     if(i<2){
         OSCarray[i] => E[i] => R[i] => dac;
@@ -63,22 +86,12 @@ for( 0 => int i; i<chordSize; i++)
     else{
         OSCarray[i] => E[i] => R[i] => dac;
     }
-    0.4 => OSCarray[i].gain;
+    defaultGain * (1.0 - (i / 25.0)) => OSCarray[i].gain;
     E[i].set(10::ms, 100::ms, .9, 1200::ms);
     0.01 => R[i].mix;
     .99 => F[i].prad; 
     1 => F[i].eqzs;
     (5-i)*0.05 => F[i].gain;
-}
-
-
-//MIDI port
-0 => int port;
-
-if( !min.open(port))
-{
-    <<<"ERROR: midi port didn't open on port:", port>>>;
-    me.exit();
 }
 
 spork ~ ddrumTrig();
@@ -133,7 +146,9 @@ fun void ddrumTrig()
         
         while(min.recv(msg))
         {
-            <<< msg.data1, msg.data2, msg.data3 >>>;
+            if(msg.data3 != 0){
+                <<<"midi note", msg.data2, "velocity", msg.data3>>>;
+            }
             if( msg.data3!=0 && msg.data2 == 0 && hitBass==0) //kick drum
             {
                 1 => hitBass; 
@@ -219,10 +234,10 @@ fun void ddrumTrig()
                 msg.data2 - 54 => int soloInput; //starts at 48
                 <<<(Achordindex-1)%Achords.size()>>>;
                 
-                //6 => shake.which;
-                //50.0 => shake.freq;
-                //Math.random2f( 0, 128 ) => shake.objects;
-                //shake.noteOn(10.0);
+                Math.random2( 0, 22 ) => shake.which;
+                50.0 => shake.freq;
+                Math.random2f( 0, 128 ) => shake.objects;
+                shake.noteOn(3.0);
                 
                 if(bSection == 0){
                     Achords[(Achordindex+Achords.size()-1)%Achords.size()][soloInput]*2.0=> soloOsc.freq;

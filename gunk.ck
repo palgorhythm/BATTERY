@@ -1,5 +1,25 @@
- MidiIn min;
+MidiIn min;
 MidiMsg msg;
+fun void setUpMidi() {
+    [0,1,2,3,4,5] @=> int ports[];
+    0 => int hasOpenPort;
+    0 => int openPort;
+    for(0 => int i; i < ports.size(); i++){
+        if(min.open(ports[i]) && min.name() == "SPD-SX") {
+            ports[i] => openPort;
+            1 => hasOpenPort;
+            break;
+        }
+    }
+    
+    if(hasOpenPort == 0) {
+        <<<"ERROR: SPD-SX MIDI port not found.">>>;
+        me.exit();
+    } else {
+        <<<"Opened SPD on port", openPort>>>;
+    }
+}
+setUpMidi();
 
 OscOut osc;
 osc.dest("10.10.10.1",6969);
@@ -51,15 +71,6 @@ SqrOsc osc3 => ADSR e3 => PRCRev reverb3 => dac;
 e3.set( 10::ms, 10::ms, .5, 50::ms );
 0.1 => reverb3.mix;
 
-//MIDI port
-0 => int port;
-
-if( !min.open(port))
-{
-    <<<"ERROR: midi port didn't open on port:", port>>>;
-    me.exit();
-}
-
 spork ~ ddrumTrig();
 spork ~ ddrumTrig();
 spork ~ ddrumTrig();
@@ -78,7 +89,7 @@ fun void ddrumTrig()
     while(true)
     {
         min => now;
-        //<<<(msg.data2)>>>;
+        <<<(msg.data2)>>>;
         
         while(min.recv(msg))
         {

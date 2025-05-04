@@ -179,7 +179,7 @@ fun void ddrumTrig()
                 .001 => reverb2.mix;
             }
             //<<< msg.data1, msg.data2, msg.data3 >>>;
-            if( msg.data3!=0 && msg.data2 == 37 && hitBass == 0 ) //kick drum
+            if( msg.data3!=0 && msg.data2 == 1 && hitBass == 0 ) //kick drum
             {
                 //<<<hitBass>>>;
                 1 => hitBass;
@@ -201,7 +201,7 @@ fun void ddrumTrig()
                 (bassindices[1] + 1 ) % seqWidth => bassindices[1];  
                  
             }   
-            else if(msg.data3!=0 && msg.data2 == 36 && hitSnare==0) //snare
+            else if(msg.data3!=0 && msg.data2 == 0 && hitSnare==0) //snare
             {
               
                 1 => hitSnare;
@@ -215,7 +215,7 @@ fun void ddrumTrig()
                 
                 (melodyindices[1] + 1) % seqWidth => melodyindices[1];
             }
-            else if(msg.data3!=0 && msg.data2 == 38 && hitTom == 0) //tom3: down a row
+            else if(msg.data3!=0 && msg.data2 == 2 && hitTom == 0) //tom3: down a row
             {
                 1 => hitTom;
                 now => tomTime;   
