@@ -1,23 +1,25 @@
+// ============================================================
+// ALLOY - chord progression with solo voice
+// MIDI via IAC Driver | Audio output on channels 3 & 4
+// ============================================================
+
+// Sensory Percussion MIDI map:
+// Drums: kick=0, snare=1, rack tom=2, floor tom=3
+// Hi-hat zones:  4 (bow), 5 (edge), 6 (bell-shoulder), 7 (bell-tip), 8 (ping)
+// Crash zones:   9 (bow), 10 (edge), 11 (bell-shoulder), 12 (bell-tip), 13 (ping)
+// Ride zones:    14 (bow), 15 (edge), 16 (bell-shoulder), 17 (bell-tip), 18 (ping)
+
 MidiIn min;
 MidiMsg msg;
 fun void setUpMidi() {
-    [0,1,2,3,4,5] @=> int ports[];
-    0 => int hasOpenPort;
-    0 => int openPort;
-    for(0 => int i; i < ports.size(); i++){
-        if(min.open(ports[i]) && min.name() == "SPD-SX") {
-            ports[i] => openPort;
-            1 => hasOpenPort;
-            break;
+    for (0 => int i; i < 8; i++) {
+        if (min.open(i) && min.name().find("IAC") > -1) {
+            <<<"Opened IAC Driver on port", i>>>;
+            return;
         }
     }
-    
-    if(hasOpenPort == 0) {
-        <<<"ERROR: SPD-SX MIDI port not found.">>>;
-        me.exit();
-    } else {
-        <<<"Opened SPD on port", openPort>>>;
-    }
+    <<<"ERROR: IAC Driver MIDI port not found.">>>;
+    me.exit();
 }
 setUpMidi();
 
@@ -104,6 +106,10 @@ for(0 => int i; i<Bchords.size(); i++) //convert to MIDI notes
     changeOctave([Bchords[i][0]],"up",1)[0] => Bchords[i][0];
 }
 
+Gain master => dac.chan(2);
+master => dac.chan(3);
+0.085 => float defaultGain;
+
 PulseOsc pulse; PulseOsc saw1; PulseOsc saw2; PulseOsc saw3;
 [pulse,saw1,saw2,saw3] @=> PulseOsc OSCarray[];
 ADSR E[4];
@@ -111,12 +117,12 @@ PRCRev R[4];
 BiQuad F[4];
 
 for( 0 => int i; i<4; i++)
-{ 
-    OSCarray[i] => E[i] => R[i] => dac;
-    1.0 => OSCarray[i].gain;
+{
+    OSCarray[i] => E[i] => R[i] => master;
+    defaultGain => OSCarray[i].gain;
     E[i].set(30::ms, 500::ms, .01, 2000::ms);
     0.09 => R[i].mix;
-    .95 => F[i].prad; 
+    .95 => F[i].prad;
     1 => F[i].eqzs;
     (5-i)*.008 => F[i].gain;
 }
@@ -124,10 +130,10 @@ for( 0 => int i; i<4; i++)
 PulseOsc soloOsc;
 ADSR soloADSR;
 BiQuad soloFilt;
-soloOsc => soloADSR => soloFilt => dac;
+soloOsc => soloADSR => soloFilt => master;
 soloADSR.set(5::ms, 5::ms, .5, 20::ms);
-0.9 => soloOsc.gain;
-.99 => soloFilt.prad; 
+defaultGain => soloOsc.gain;
+.99 => soloFilt.prad;
 5 => soloFilt.eqzs;
 0.9 => soloFilt.gain;
 
@@ -149,7 +155,7 @@ oscOut("/songSection",[0]);
 while(true)
 {
     1::second => now;
-    if(sectionIndex > 3) 
+    if(sectionIndex > 3)
     {
         oscOut("/songSection",[1]);
         1 => bSection;
@@ -187,16 +193,16 @@ fun void ddrumTrig()
     {
         min => now;
         //<<<(msg.data2)>>>;
-        
+
         while(min.recv(msg))
         {
             //<<< msg.data1, msg.data2, msg.data3 >>>;
             if( msg.data3!=0 && msg.data2 == 0 && hitBass==0) //kick drum
             {
-                1 => hitBass; 
-                
+                1 => hitBass;
+
                 for( 0 => int i; i<4; i++)
-                { 
+                {
                     //((sectionIndex % 4) + 1) * 350 => a;
                     if(bSection == 0)
                     {
@@ -210,41 +216,41 @@ fun void ddrumTrig()
                         //<<<a>>>;
                         E[i].set(20::ms, 10::ms, .9, a::ms);
                     }
-                    
+
                 }
-                
+
                 //<<<a>>>;
-                
+
                 if(bSection == 0)
                 {
                     for(0 => int i; i < Achords[Achordindex].size(); i++)
                     {
                         E[i].keyOff();
                     }
-                    
+
                     oscOut("/chords",[Achords[Achordindex][0]]);
-                    
+
                     for(0 => int i; i < Achords[Achordindex].size(); i++)
                     {
-                        
+
                         Std.mtof(Achords[Achordindex][i]) => OSCarray[i].freq;
                         E[i].keyOn();
                     }
-                    
+
                     if(Achordindex == Achords.size()-1) sectionIndex+1 => sectionIndex;
-                    
+
                     (Achordindex + 1) % Achords.size() => Achordindex;
-                    
-                    
+
+
                     100::ms => now;
-                    
-                    
+
+
                     for(0 => int i; i < Achords[Achordindex].size(); i++)
                     {
                         E[i].keyOff();
                     }
-                    
-                    100::ms => now;    
+
+                    100::ms => now;
                 }
                 else
                 {
@@ -252,42 +258,42 @@ fun void ddrumTrig()
                     {
                         E[i].keyOff();
                     }
-                    
+
                     oscOut("/chords",[Bchords[Bchordindex][0]]);
-                    
+
                     for(0 => int i; i < Bchords[Bchordindex].size(); i++)
                     {
-                        
+
                         Std.mtof(Bchords[Bchordindex][i]) => OSCarray[i].freq;
                         E[i].keyOn();
                     }
-                    
+
                     if(Bchordindex == Bchords.size()-1) sectionIndex+1 => sectionIndex;
-                    
+
                     (Bchordindex + 1) % Bchords.size() => Bchordindex;
-                    
-                    
+
+
                     100::ms => now;
-                    
-                    
+
+
                     for(0 => int i; i < Bchords[Bchordindex].size(); i++)
                     {
                         E[i].keyOff();
                     }
-                    
-                    100::ms => now;  
-                    
-                }        
-            }   
-            else if(msg.data3!=0 && 54<=msg.data2 && msg.data2<=57){
+
+                    100::ms => now;
+
+                }
+            }
+            else if(msg.data3!=0 && 9<=msg.data2 && msg.data2<=12){
                 soloADSR.keyOff();
-                msg.data2 - 54 => int soloInput; //starts at 48
+                msg.data2 - 9 => int soloInput; //starts at 48
                 <<<Achords[(Achordindex+Achords.size()-1)%Achords.size()][soloInput]+(8*12)>>>;
                 //6 => shake.which;
                 //50.0 => shake.freq;
                 //Math.random2f( 0, 128 ) => shake.objects;
                 //shake.noteOn(10.0);
-                
+
                 if(bSection == 0){
                     Std.mtof(Achords[(Achordindex+Achords.size()-1)%Achords.size()][soloInput]+(2*12))=> soloOsc.freq;
                     soloADSR.keyOn();
@@ -299,19 +305,19 @@ fun void ddrumTrig()
                     soloADSR.keyOn();
                     20::ms=>now;
                     soloADSR.keyOff();
-                    
+
                 }
-                
+
             }
-            else if(msg.data3!=0 && 58<=msg.data2 && msg.data2<=61){
+            else if(msg.data3!=0 && 13<=msg.data2 && msg.data2<=16){
                 soloADSR.keyOff();
-                msg.data2 - 58 => int soloInput; //starts at 48
+                msg.data2 - 13 => int soloInput; //starts at 48
                 <<<Achords[(Achordindex+Achords.size()-1)%Achords.size()][soloInput]+(8*12)>>>;
                 //6 => shake.which;
                 //50.0 => shake.freq;
                 //Math.random2f( 0, 128 ) => shake.objects;
                 //shake.noteOn(10.0);
-                
+
                 if(bSection == 0){
                     Std.mtof(Achords[(Achordindex+Achords.size()-1)%Achords.size()][soloInput]+7+(2*12))=> soloOsc.freq;
                     soloADSR.keyOn();
@@ -323,12 +329,12 @@ fun void ddrumTrig()
                     soloADSR.keyOn();
                     20::ms=>now;
                     soloADSR.keyOff();
-                    
+
                 }
-                
+
             }
         }
-    }    
+    }
 }
 
 
@@ -339,7 +345,7 @@ function int[] notes2nums(string notes[], int numcopies)
     ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"] @=> string A[];
     string numTOnote[127];
     int noteTOnum[127];
-    
+
     //create array of midi notes indexed by integers 0-127
     for(0 => int i; i<127;i++)
     {
@@ -347,13 +353,13 @@ function int[] notes2nums(string notes[], int numcopies)
         -2 + i/12 => int counter;
         A[mod] + counter => numTOnote[i];
     }
-    
+
     //create array indexed by midi notes (the inverse of B)
     for(0 => int i; i<127; i++)
     {
         i => noteTOnum[numTOnote[i]];
     }
-    
+
     int numbers[notes.size()*numcopies];
     for(0 => int i; i<notes.size()*numcopies;i++)
     {
@@ -366,7 +372,7 @@ function int[] notes2nums(string notes[], int numcopies)
 function int[] changeOctave(int noteNums[], string choice, int x)
 {
     int result[noteNums.size()];
-    
+
     if(choice == "up")
     {
         for(0 => int i; i < noteNums.size(); i++)
@@ -391,7 +397,7 @@ function int[] changeOctave(int noteNums[], string choice, int x)
 function int[] transpose(int noteNums[], string choice, int halfSteps)
 {
     int result[noteNums.size()];
-    
+
     if(choice == "up")
     {
         for(0 => int i; i < noteNums.size(); i++)
@@ -415,7 +421,7 @@ function int[] transpose(int noteNums[], string choice, int halfSteps)
 
 fun void oscOut(string addr, int val[]){
     osc.start(addr);
-    
+
     for(0 => int i; i<val.size(); i++)
     {
         osc.add(val[i]);
